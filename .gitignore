@@ -1,0 +1,51 @@
+# Cabal build artifacts
+/dist-newstyle/
+/dist/
+/cabal.sandbox.config
+/cabal.project.local
+/cabal.project.local~ 
+/setup-config
+
+# Haskell build artifacts
+*.hi
+*.o
+*.dyn_o
+*.dyn_hi
+
+# Binary executables and other build artifacts
+*.a
+*.so
+*.dylib
+*.dll
+*.exe
+
+# GHCi REPL files
+.ghci
+
+# Cabal package tarballs
+*.tar.gz
+
+# Tags files for editors
+.tags
+.tags1
+.tags2
+
+# Haskell IDEs/Editors files
+.ghc.environment.*
+/*.hie
+/*.hie-bios
+*.vscode/
+*.idea/
+*.hie/
+/*.vscode/
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
