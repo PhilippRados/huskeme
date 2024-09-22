@@ -11,9 +11,9 @@ import Data.Text as T
 import Text.ParserCombinators.Parsec hiding (spaces)
 
 data LispVal
-  = Nil
-  | Atom T.Text
+  = Atom T.Text
   | List [LispVal]
+  | DottedList [LispVal] LispVal
   | Number Integer
   | String T.Text
   | Bool Bool
@@ -29,9 +29,12 @@ showVal val =
     (Number num) -> T.pack $ show num
     (Bool True) -> "#t"
     (Bool False) -> "#f"
-    Nil -> "Nil"
     ------------------------------------ same as: map showVal contents
     (List contents) -> T.concat ["(", T.unwords $ showVal <$> contents, ")"]
+    (DottedList contents last_) -> T.concat ["(", T.unwords $ showVal <$> contents, " . ", showVal last_, ")"]
+
+spaces :: Parser ()
+spaces = skipMany1 space
 
 parseBool :: Parser LispVal
 parseBool = do
@@ -42,9 +45,6 @@ parseBool = do
     'f' -> False
     _ -> error "unreachable: monad shortcircuits before"
 
-parseNil :: Parser LispVal
-parseNil = string "nil" >> return Nil
-
 parseString :: Parser LispVal
 parseString = do
   _ <- char '"'
@@ -52,18 +52,37 @@ parseString = do
   _ <- char '"'
   return $ String $ T.pack literal
 
+symbol :: Parser Char
+symbol = oneOf "!#$%&|*+-/:<=>?@^_~"
+
 parseAtom :: Parser LispVal
 parseAtom = do
-  x <- letter
-  xs <- many $ letter <|> digit
+  x <- letter <|> symbol
+  xs <- many $ letter <|> digit <|> symbol
   return $ Atom $ T.pack $ x : xs
 
 parseNumber :: Parser LispVal
 -- same as: liftM (Number . read) $ many1 digit, because liftM <=> fmap, fmap <=> <$>
 parseNumber = Number . read <$> many1 digit
 
+parseBasicList :: Parser LispVal
+parseBasicList = List <$> sepBy parseExpr spaces
+
+parseDottedList :: Parser LispVal
+parseDottedList = do
+  elems <- endBy parseExpr spaces
+  _ <- char '.' >> spaces
+  DottedList elems <$> parseExpr
+
+parseLists :: Parser LispVal
+parseLists = do
+  _ <- char '('
+  l <- try parseBasicList <|> parseDottedList
+  _ <- char ')'
+  return l
+
 parseExpr :: Parser LispVal
-parseExpr = parseString <|> parseBool <|> parseNil <|> parseAtom <|> parseNumber
+parseExpr = parseString <|> parseBool <|> parseAtom <|> parseNumber <|> parseLists
 
 readExpr :: T.Text -> Either ParseError LispVal
-readExpr input = parse parseExpr "default_file.ls" (T.unpack input)
+readExpr input = parse parseExpr "<stdin>" (T.unpack input)
