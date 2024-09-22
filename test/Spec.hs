@@ -23,7 +23,7 @@ testParse =
     it "parses atoms" $ do
       readExpr "abc" `shouldBe` Right (Atom "abc")
       readExpr "a1bc" `shouldBe` Right (Atom "a1bc")
-      readExpr "1abc" `shouldSatisfy` isLeft
+      readExpr "(1abc)" `shouldSatisfy` isLeft
 
     it "parses nums" $ do
       readExpr "1 abc" `shouldBe` Right (Number 1)
@@ -44,6 +44,7 @@ testEval =
 
     it "nested math" $ do
       evalExpr <$> readExpr "(+ (* 2 2) 3)" `shouldBe` Right (Number 7)
+      evalExpr <$> readExpr "(* (+ 2 (* 4 6)) (+ 3 5 7))" `shouldBe` Right (Number 390)
 
     it "num comp" $ do
       evalExpr <$> readExpr "(= 1 1)" `shouldBe` Right (Bool True)
@@ -54,3 +55,4 @@ testEval =
       evalExpr <$> readExpr "(string=? \"foo\" \"foo\")" `shouldBe` Right (Bool True)
       evalExpr <$> readExpr "(string=? \"foo\" \"foo\" \"bar\")" `shouldBe` Right (Bool False)
       evalExpr <$> readExpr "(string=? \"foo\" \"bar\")" `shouldBe` Right (Bool False)
+      evalExpr <$> readExpr "(string<? \"abc\" \"bba\")" `shouldBe` Right (Bool True)

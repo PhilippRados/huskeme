@@ -35,7 +35,8 @@ numCompBinOp :: (Integer -> Integer -> Bool) -> [LispVal] -> LispVal
 numCompBinOp op = binOp Bool unpackNum $ foldComp op
 
 strCompBinOp :: (Text -> Text -> Bool) -> [LispVal] -> LispVal
-strCompBinOp op = binOp Bool unpackString $ foldComp op
+strCompBinOp op args@[_, _] = binOp Bool unpackString (foldComp op) args
+strCompBinOp _ args = error ("string operations expected exactly 2 arguments, got " ++ show (length args))
 
 builtins :: [(Text, [LispVal] -> LispVal)]
 builtins =
@@ -49,7 +50,6 @@ builtins =
     ("=", numCompBinOp (==)),
     ("<", numCompBinOp (<)),
     (">", numCompBinOp (>)),
-    ("/=", numCompBinOp (/=)),
     (">=", numCompBinOp (>=)),
     ("<=", numCompBinOp (<=)),
     -- ("and", logicBinOp (&&)),
