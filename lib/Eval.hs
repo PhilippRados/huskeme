@@ -66,7 +66,16 @@ apply op args = case lookup op builtins of
   Just f -> f args
   Nothing -> error "todo: lookup functions from env"
 
+ifExpr :: LispVal -> LispVal -> Maybe LispVal -> LispVal
+ifExpr cond then_expr else_expr =
+  case (evalExpr cond, else_expr) of
+    (Bool False, Just expr) -> evalExpr expr
+    (Bool False, Nothing) -> Undefined
+    _ -> evalExpr then_expr
+
 evalExpr :: LispVal -> LispVal
+evalExpr (List [Atom "if", cond, then_expr, else_expr]) = ifExpr cond then_expr (Just else_expr)
+evalExpr (List [Atom "if", cond, then_expr]) = ifExpr cond then_expr Nothing
 evalExpr (List (Atom op : rest)) = apply op $ map evalExpr rest
 evalExpr (List (op : _)) = error $ show op ++ " is not a function, must be atom"
 -- evalExpr (DottedList (op : rest)) = apply op $ map evalExpr rest

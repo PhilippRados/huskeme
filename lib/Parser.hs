@@ -17,6 +17,7 @@ data LispVal
   | Number Integer
   | String T.Text
   | Bool Bool
+  | Undefined
   deriving (Eq)
 
 instance Show LispVal where show = T.unpack . showVal
@@ -32,6 +33,7 @@ showVal val =
     ------------------------------------ same as: map showVal contents
     (List contents) -> T.concat ["(", T.unwords $ showVal <$> contents, ")"]
     (DottedList contents last_) -> T.concat ["(", T.unwords $ showVal <$> contents, " . ", showVal last_, ")"]
+    Undefined -> "<undefined>"
 
 spaces :: Parser ()
 spaces = skipMany1 space
