@@ -78,6 +78,19 @@ testEval =
       assertEval "(if #f 1)" Undefined
       assertEval "((if #f - *) 3 4)" (Number 12)
 
+    it "car operator" $ do
+      assertEval "(car '(a b c))" (Atom "a")
+      assertEval "(car '((a) b c d))" (List [Atom "a"])
+      assertEval "(car '(1 . 2))" (Number 1)
+    -- assertEval "(car '())" ===> error
+
+    it "cdr operator" $ do
+      assertEval "(cdr '((a) b c d))" (List [Atom "b", Atom "c", Atom "d"])
+      assertEval "(cdr '(1 . 2))" (Number 2)
+      assertEval "(cdr '(1))" (List [])
+
+-- assertEval "(cdr '())" ⟹ error
+
 assertEval :: (HasCallStack) => Text -> LispVal -> Expectation
 assertEval expr expected =
   evalExpr <$> readExpr expr `shouldBe` Right expected

@@ -37,6 +37,19 @@ numCompBinOp op = binOp Bool unpackNum $ foldComp op
 strCompBinOp :: (Text -> Text -> Bool) -> [LispVal] -> LispVal
 strCompBinOp op = binOp Bool unpackString $ foldComp op
 
+car :: [LispVal] -> LispVal
+car [List (x : _)] = x
+car [DottedList (x : _) _] = x
+car [_] = error "car expects a list as argument"
+car _ = error "car expects a single argument"
+
+cdr :: [LispVal] -> LispVal
+cdr [List (_ : xs)] = List xs
+cdr [DottedList [_] x] = x
+cdr [DottedList (_ : xs) x] = DottedList xs x
+cdr [_] = error "cdr expects a list as argument"
+cdr _ = error "cdr expects a single argument"
+
 -- NOTE: these are builtin functions according to the r7rs standard:
 -- https://standards.scheme.org/corrected-r7rs/r7rs-Z-H-8.html#TAG:__tex2page_chap_6
 procedures :: [(Text, [LispVal] -> LispVal)]
@@ -59,7 +72,9 @@ procedures =
     ("string<?", strCompBinOp (<)),
     ("string>?", strCompBinOp (>)),
     ("string<=?", strCompBinOp (<=)),
-    ("string>=?", strCompBinOp (>=))
+    ("string>=?", strCompBinOp (>=)),
+    ("car", car),
+    ("cdr", cdr)
   ]
 
 apply :: Text -> [LispVal] -> LispVal
