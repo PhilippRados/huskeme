@@ -74,6 +74,7 @@ ifExpr cond then_expr else_expr =
     _ -> evalExpr else_expr
 
 evalExpr :: LispVal -> LispVal
+evalExpr (List [Atom "quote", x]) = x
 evalExpr (List [Atom "if", cond, then_expr, else_expr]) = ifExpr cond then_expr else_expr
 evalExpr (List [Atom "if", cond, then_expr]) = ifExpr cond then_expr Undefined
 evalExpr (List (Atom op : rest)) = apply op $ map evalExpr rest

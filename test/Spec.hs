@@ -37,6 +37,11 @@ testParse =
     it "parses dotted-lists" $ do
       readExpr "(1 .  (2 . 3))" `shouldBe` Right (DottedList [Number 1] (DottedList [Number 2] (Number 3)))
 
+    it "parses quote" $ do
+      readExpr "'(1 2 3)" `shouldBe` Right (List [Atom "quote", List [Number 1, Number 2, Number 3]])
+      readExpr "'(+ 1 2)" `shouldBe` Right (List [Atom "quote", List [Atom "+", Number 1, Number 2]])
+      readExpr "(quote (+ 1 2))" `shouldBe` Right (List [Atom "quote", List [Atom "+", Number 1, Number 2]])
+
 testEval =
   describe "evalExpr" $ do
     it "simple math" $ do

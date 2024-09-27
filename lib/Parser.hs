@@ -83,8 +83,14 @@ parseLists = do
   _ <- char ')'
   return l
 
+parseQuote :: Parser LispVal
+parseQuote = do
+  _ <- char '\''
+  x <- parseExpr
+  return $ List [Atom "quote", x]
+
 parseExpr :: Parser LispVal
-parseExpr = parseString <|> parseBool <|> parseAtom <|> parseNumber <|> parseLists
+parseExpr = parseString <|> parseBool <|> parseAtom <|> parseNumber <|> parseLists <|> parseQuote
 
 readExpr :: T.Text -> Either ParseError LispVal
 readExpr input = parse parseExpr "<stdin>" (T.unpack input)
