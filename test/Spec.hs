@@ -54,20 +54,25 @@ testEval =
       assertEval "(= 1 1 2)" (Bool False)
       assertEval "(<= 1 1 2)" (Bool True)
       assertEval "(<= 1 0 2)" (Bool False)
+      assertEval "(< 1 2 3)" (Bool True)
+      assertEval "(< 1 5 4)" (Bool False)
 
     it "str comp" $ do
       assertEval "(string=? \"foo\" \"foo\")" (Bool True)
       assertEval "(string=? \"foo\" \"bar\")" (Bool False)
-      evaluate (evalExpr <$> readExpr "(string=? \"foo\" \"foo\" \"bar\")") `shouldThrow` anyErrorCall
+      assertEval "(string=? \"foo\" \"foo\" \"bar\")" (Bool False)
       assertEval "(string<? \"abc\" \"bba\")" (Bool True)
+      assertEval "(string<? \"abc\" \"aba\")" (Bool False)
+      assertEval "(string<=? \"abc\" \"abc\")" (Bool True)
 
     it "if cond" $ do
       assertEval "(if #t 1 2)" (Number 1)
       assertEval "(if #f 1 2)" (Number 2)
-      assertEval "(if \"foo\" 1 2)" (Number 1)
+      assertEval "(if \"foo\" 1 2)" (Number 2)
       assertEval "(if #t 1)" (Number 1)
       assertEval "(if #f 1)" Undefined
+      assertEval "((if #f - *) 3 4)" (Number 12)
 
-assertEval :: Text -> LispVal -> Expectation
+assertEval :: (HasCallStack) => Text -> LispVal -> Expectation
 assertEval expr expected =
   evalExpr <$> readExpr expr `shouldBe` Right expected
