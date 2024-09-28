@@ -51,6 +51,13 @@ cdr [DottedList (_ : xs) x] = return $ DottedList xs x
 cdr [_] = Left $ TypeError "list"
 cdr args = Left $ ArgError 1 (length args)
 
+cons :: [LispVal] -> EvalResult LispVal
+cons [x1, List []] = return $ List [x1]
+cons [x1, List xs] = return $ List (x1 : xs)
+cons [x1, DottedList xs last_] = return $ DottedList (x1 : xs) last_
+cons [x1, x2] = return $ DottedList [x1] x2
+cons args = Left $ ArgError 2 (length args)
+
 -- NOTE: these are builtin functions according to the r7rs standard:
 -- https://standards.scheme.org/corrected-r7rs/r7rs-Z-H-8.html#TAG:__tex2page_chap_6
 procedures :: [(T.Text, [LispVal] -> EvalResult LispVal)]
@@ -75,7 +82,8 @@ procedures =
     ("string<=?", strCompBinOp (<=)),
     ("string>=?", strCompBinOp (>=)),
     ("car", car),
-    ("cdr", cdr)
+    ("cdr", cdr),
+    ("cons", cons)
   ]
 
 apply :: T.Text -> [LispVal] -> EvalResult LispVal

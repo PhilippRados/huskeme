@@ -92,6 +92,14 @@ testEval =
       assertEval "(cdr '(1))" (List [])
       assertEvalErr "(cdr '())"
 
+    it "cons operator" $ do
+      assertEval "(cons 'a '())" (List [Atom "a"])
+      assertEval "(cons '() '())" (List [List []])
+      assertEval "(cons '(a) '(b c d))" (List [List [Atom "a"], Atom "b", Atom "c", Atom "d"])
+      assertEval "(cons \"a\" '(b c))" (List [String "a", Atom "b", Atom "c"])
+      assertEval "(cons 'a 3)" (DottedList [Atom "a"] (Number 3))
+      assertEval "(cons '(a b) 'c)" (DottedList [List [Atom "a", Atom "b"]] (Atom "c"))
+
 assertEval :: (HasCallStack) => Text -> LispVal -> Expectation
 assertEval expr expected =
   (readExpr expr >>= eval) `shouldBe` Right expected
