@@ -58,6 +58,7 @@ testEval =
       assertEval "(= 1 1)" (Bool True)
       assertEval "(= 1 1 1)" (Bool True)
       assertEval "(= 1 1 2)" (Bool False)
+      assertEvalErr "(= \"1\" \"1\")"
       assertEval "(<= 1 1 2)" (Bool True)
       assertEval "(<= 1 0 2)" (Bool False)
       assertEval "(< 1 2 3)" (Bool True)
@@ -99,6 +100,25 @@ testEval =
       assertEval "(cons \"a\" '(b c))" (List [String "a", Atom "b", Atom "c"])
       assertEval "(cons 'a 3)" (DottedList [Atom "a"] (Number 3))
       assertEval "(cons '(a b) 'c)" (DottedList [List [Atom "a", Atom "b"]] (Atom "c"))
+
+    it "equality operations" $ do
+      assertEval "(eqv? 'a 'a)" (Bool True)
+      assertEval "(eqv? 'a 'b)" (Bool False)
+      assertEval "(eqv? 2 2)" (Bool True)
+      assertEval "(eqv? '() '())" (Bool True)
+      assertEval "(eqv? 100000000 100000000)" (Bool True)
+      assertEval "(eqv? (cons 1 2) (cons 1 2))" (Bool False)
+      assertEval "(eqv? '('a 'b) '('a 'b))" (Bool False)
+      assertEval "(eqv? \"abc\" \"abc\")" (Bool True)
+
+      assertEval "(equal? '('a 'b) '('a 'b))" (Bool True)
+      assertEval "(equal? (cons 1 2) (cons 1 2))" (Bool True)
+      assertEval "(equal? 'a 'a)" (Bool True)
+      assertEval "(equal? '(a) '(a))" (Bool True)
+      assertEval "(equal? '(a (b) c) '(a (b) c))" (Bool True)
+      assertEval "(equal? \"abc\" \"abc\")" (Bool True)
+      assertEval "(equal? 2 2)" (Bool True)
+      assertEval "(equal? 1 \"1\")" (Bool False)
 
 assertEval :: (HasCallStack) => Text -> LispVal -> Expectation
 assertEval expr expected =

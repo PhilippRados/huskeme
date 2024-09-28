@@ -58,6 +58,32 @@ cons [x1, DottedList xs last_] = return $ DottedList (x1 : xs) last_
 cons [x1, x2] = return $ DottedList [x1] x2
 cons args = Left $ ArgError 2 (length args)
 
+-- eq and eqv can be the same according to r7rs:
+-- It must always return #f when eqv? also would,
+-- but may return #f in some cases where eqv? would return #t
+eqv :: [LispVal] -> EvalResult LispVal
+eqv [Number a, Number b] = return $ Bool $ a == b
+eqv [Bool a, Bool b] = return $ Bool $ a == b
+eqv [Atom a, Atom b] = return $ Bool $ a == b -- can only happen if symbol because lookup extracts stored value of variable
+eqv [String a, String b] = return $ Bool $ a == b
+eqv [List [], List []] = return $ Bool True
+eqv [_, _] = return $ Bool False
+eqv args = Left $ ArgError 2 (length args)
+
+-- same as eqv but can be used for lists as well
+equal :: [LispVal] -> EvalResult LispVal
+equal [List xs, List ys] = equalLists xs ys
+equal [DottedList xs x, DottedList ys y] = equalLists (xs ++ [x]) (ys ++ [y])
+equal args = eqv args
+
+equalLists :: [LispVal] -> [LispVal] -> EvalResult LispVal
+equalLists xs ys = equal_values >>= (\eq -> return $ Bool $ same_length && eq)
+  where
+    same_length = length xs == length ys
+    equal_values = do
+      values <- mapM (\(a, b) -> equal [a, b]) $ zip xs ys
+      return $ all (== Bool True) values
+
 -- NOTE: these are builtin functions according to the r7rs standard:
 -- https://standards.scheme.org/corrected-r7rs/r7rs-Z-H-8.html#TAG:__tex2page_chap_6
 procedures :: [(T.Text, [LispVal] -> EvalResult LispVal)]
@@ -83,7 +109,11 @@ procedures =
     ("string>=?", strCompBinOp (>=)),
     ("car", car),
     ("cdr", cdr),
-    ("cons", cons)
+    ("cons", cons),
+    -- equality operations in scheme: https://stackoverflow.com/questions/16299246/what-is-the-difference-between-eq-eqv-equal-and-in-scheme
+    ("eq?", eqv),
+    ("eqv?", eqv),
+    ("equal?", equal)
   ]
 
 apply :: T.Text -> [LispVal] -> EvalResult LispVal
