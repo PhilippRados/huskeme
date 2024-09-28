@@ -3,6 +3,7 @@
 import Control.Exception.Base
 import Data.Either
 import Data.Text (Text)
+import Error
 import Eval
 import Parser
 import Test.Hspec
@@ -69,6 +70,7 @@ testEval =
       assertEval "(string<? \"abc\" \"bba\")" (Bool True)
       assertEval "(string<? \"abc\" \"aba\")" (Bool False)
       assertEval "(string<=? \"abc\" \"abc\")" (Bool True)
+      assertEvalErr "(string=? 1 2 3)"
 
     it "if cond" $ do
       assertEval "(if #t 1 2)" (Number 1)
@@ -82,15 +84,24 @@ testEval =
       assertEval "(car '(a b c))" (Atom "a")
       assertEval "(car '((a) b c d))" (List [Atom "a"])
       assertEval "(car '(1 . 2))" (Number 1)
-    -- assertEval "(car '())" ===> error
+      assertEvalErr "(car '())"
 
     it "cdr operator" $ do
       assertEval "(cdr '((a) b c d))" (List [Atom "b", Atom "c", Atom "d"])
       assertEval "(cdr '(1 . 2))" (Number 2)
       assertEval "(cdr '(1))" (List [])
-
--- assertEval "(cdr '())" ⟹ error
+      assertEvalErr "(cdr '())"
 
 assertEval :: (HasCallStack) => Text -> LispVal -> Expectation
 assertEval expr expected =
-  evalExpr <$> readExpr expr `shouldBe` Right expected
+  (readExpr expr >>= eval) `shouldBe` Right expected
+
+assertEvalErr :: (HasCallStack) => Text -> Expectation
+assertEvalErr expr =
+  (readExpr expr >>= eval) `shouldSatisfyWithMessage` isLeft
+
+shouldSatisfyWithMessage :: (Show a) => a -> (a -> Bool) -> Expectation
+shouldSatisfyWithMessage actual predicate =
+  if predicate actual
+    then return () -- Test passes
+    else expectationFailure $ "Predicate failed on: " ++ show actual -- Print the actual value

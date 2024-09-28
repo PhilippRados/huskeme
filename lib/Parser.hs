@@ -8,6 +8,7 @@ module Parser
 where
 
 import Data.Text as T
+import Error
 import Text.ParserCombinators.Parsec hiding (spaces)
 
 data LispVal
@@ -20,20 +21,15 @@ data LispVal
   | Undefined
   deriving (Eq)
 
-instance Show LispVal where show = T.unpack . showVal
-
-showVal :: LispVal -> T.Text
-showVal val =
-  case val of
-    (Atom atom) -> atom
-    (String str) -> T.concat ["\"", str, "\""]
-    (Number num) -> T.pack $ show num
-    (Bool True) -> "#t"
-    (Bool False) -> "#f"
-    ------------------------------------ same as: map showVal contents
-    (List contents) -> T.concat ["(", T.unwords $ showVal <$> contents, ")"]
-    (DottedList contents last_) -> T.concat ["(", T.unwords $ showVal <$> contents, " . ", showVal last_, ")"]
-    Undefined -> "<undefined>"
+instance Show LispVal where
+  show (Atom atom) = T.unpack atom
+  show (String str) = "\"" ++ T.unpack str ++ "\""
+  show (Number num) = show num
+  show (Bool True) = "#t"
+  show (Bool False) = "#f"
+  show (List contents) = "(" ++ Prelude.unwords (show <$> contents) ++ ")"
+  show (DottedList contents last_) = "(" ++ Prelude.unwords (show <$> contents) ++ " . " ++ show last_ ++ ")"
+  show Undefined = "<undefined>"
 
 spaces :: Parser ()
 spaces = skipMany1 space
@@ -92,5 +88,7 @@ parseQuote = do
 parseExpr :: Parser LispVal
 parseExpr = parseString <|> parseBool <|> parseAtom <|> parseNumber <|> parseLists <|> parseQuote
 
-readExpr :: T.Text -> Either ParseError LispVal
-readExpr input = parse parseExpr "<stdin>" (T.unpack input)
+readExpr :: T.Text -> Either SchemeError LispVal
+readExpr input = case parse parseExpr "<stdin>" (T.unpack input) of
+  Left err -> Left $ Parse err
+  Right val -> return val
