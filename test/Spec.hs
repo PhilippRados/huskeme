@@ -76,7 +76,7 @@ testEval =
     it "if cond" $ do
       assertEval "(if #t 1 2)" (Number 1)
       assertEval "(if #f 1 2)" (Number 2)
-      assertEval "(if \"foo\" 1 2)" (Number 2)
+      assertEval "(if \"foo\" 1 2)" (Number 1)
       assertEval "(if #t 1)" (Number 1)
       assertEval "(if #f 1)" Undefined
       assertEval "((if #f - *) 3 4)" (Number 12)
@@ -119,6 +119,22 @@ testEval =
       assertEval "(equal? \"abc\" \"abc\")" (Bool True)
       assertEval "(equal? 2 2)" (Bool True)
       assertEval "(equal? 1 \"1\")" (Bool False)
+
+    it "logical operations" $ do
+      assertEval "(and 1 2)" (Number 2)
+      assertEval "(and #f 2)" (Bool False)
+      assertEval "(and #t 6)" (Number 6)
+      assertEval "(and (= 2 2) (> 2 1))" (Bool True)
+      assertEval "(and (= 2 2) (< 2 1))" (Bool False)
+      assertEval "(and 1 2 'c '(f g))" (List [Atom "f", Atom "g"])
+      assertEval "(and)" (Bool True)
+
+      assertEval "(or 1 2)" (Number 1)
+      assertEval "(or #f #f 0 #f)" (Number 0)
+      assertEval "(or 1 #t)" (Number 1)
+      assertEval "(or (= 2 2) (> 2 1))" (Bool True)
+      assertEval "(or (= 2 2) (< 2 1))" (Bool True)
+      assertEval "(or #f #f #f)" (Bool False)
 
 assertEval :: (HasCallStack) => Text -> LispVal -> Expectation
 assertEval expr expected =

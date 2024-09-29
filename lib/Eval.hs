@@ -2,6 +2,7 @@
 
 module Eval (eval) where
 
+import Data.List (find)
 import qualified Data.Text as T
 import Error
 import Parser
@@ -84,10 +85,22 @@ equalLists xs ys = equal_values >>= (\eq -> return $ Bool $ same_length && eq)
       values <- mapM (\(a, b) -> equal [a, b]) $ zip xs ys
       return $ all (== Bool True) values
 
--- NOTE: these are builtin functions according to the r7rs standard:
+andOp :: [LispVal] -> EvalResult LispVal
+andOp [] = return $ Bool True
+andOp args = return $ case find (== Bool False) args of
+  Just falsy -> falsy
+  Nothing -> last args
+
+orOp :: [LispVal] -> EvalResult LispVal
+orOp [] = return $ Bool False
+orOp args = return $ case find (/= Bool False) args of
+  Just truthy -> truthy
+  Nothing -> last args
+
+-- these are builtin functions according to the r7rs standard:
 -- https://standards.scheme.org/corrected-r7rs/r7rs-Z-H-8.html#TAG:__tex2page_chap_6
-procedures :: [(T.Text, [LispVal] -> EvalResult LispVal)]
-procedures =
+builtins :: [(T.Text, [LispVal] -> EvalResult LispVal)]
+builtins =
   [ ("+", arithBinOp (+)),
     ("-", arithBinOp (-)),
     ("*", arithBinOp (*)),
@@ -100,8 +113,6 @@ procedures =
     (">", numCompBinOp (>)),
     (">=", numCompBinOp (>=)),
     ("<=", numCompBinOp (<=)),
-    -- ("and", logicBinOp (&&)),
-    -- ("or", logicBinOp (||)),
     ("string=?", strCompBinOp (==)),
     ("string<?", strCompBinOp (<)),
     ("string>?", strCompBinOp (>)),
@@ -113,11 +124,13 @@ procedures =
     -- equality operations in scheme: https://stackoverflow.com/questions/16299246/what-is-the-difference-between-eq-eqv-equal-and-in-scheme
     ("eq?", eqv),
     ("eqv?", eqv),
-    ("equal?", equal)
+    ("equal?", equal),
+    ("and", andOp),
+    ("or", orOp)
   ]
 
 apply :: T.Text -> [LispVal] -> EvalResult LispVal
-apply op args = case lookup op procedures of
+apply op args = case lookup op builtins of
   Just f -> f args
   Nothing -> Left $ BasicError $ T.concat [op, " function does not exist"]
 
@@ -125,8 +138,9 @@ ifExpr :: LispVal -> LispVal -> LispVal -> EvalResult LispVal
 ifExpr cond then_expr else_expr = do
   cond' <- evalExpr cond
   case cond' of
-    Bool True -> evalExpr then_expr
-    _ -> evalExpr else_expr
+    -- Of all the Scheme values, only #f counts as false in conditional expressions. All other Scheme values, including #t, count as true.
+    Bool False -> evalExpr else_expr
+    _ -> evalExpr then_expr
 
 evalExpr :: LispVal -> EvalResult LispVal
 evalExpr (List [Atom "quote", x]) = return x
