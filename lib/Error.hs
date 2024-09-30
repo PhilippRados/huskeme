@@ -6,13 +6,19 @@ import Text.Parsec.Error (errorMessages, showErrorMessages)
 
 data SchemeError = Parse ParseError | Eval EvalError deriving (Show, Eq)
 
-data EvalError = TypeError T.Text | ArgError Int Int | BasicError T.Text deriving (Eq)
+data EvalError
+  = TypeError T.Text
+  | ArgError Int Int
+  | BasicError T.Text
+  | UnboundVar T.Text
+  deriving (Eq)
 
 instance Show EvalError where
   -- TODO: also add received type
   show (TypeError ty) = "mismatched type: expected " ++ T.unpack ty
   show (ArgError expected got) = "mismatched number of arguments: expected " ++ show expected ++ ", got: " ++ show got
   show (BasicError msg) = T.unpack msg
+  show (UnboundVar name) = "unbound variable " ++ T.unpack name
 
 formatError :: SchemeError -> String -> String
 formatError (Parse err) input = formatParseError err input

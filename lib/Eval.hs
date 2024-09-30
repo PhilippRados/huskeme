@@ -1,25 +1,26 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Eval (eval) where
+module Eval (eval, EvalResult) where
 
+import Control.Monad.Except
+import Control.Monad.State
 import Data.List (find)
+import qualified Data.Map as Map
 import qualified Data.Text as T
 import Error
-import Parser
-
-type EvalResult a = Either EvalError a
+import Types
 
 unpackNum :: LispVal -> EvalResult Integer
 unpackNum (Number n) = return n
-unpackNum _ = Left $ TypeError "number"
+unpackNum _ = throwError $ TypeError "number"
 
 unpackString :: LispVal -> EvalResult T.Text
 unpackString (String s) = return s
-unpackString _ = Left $ TypeError "string"
+unpackString _ = throwError $ TypeError "string"
 
 binOp :: (b -> LispVal) -> (LispVal -> EvalResult a) -> ([a] -> b) -> [LispVal] -> EvalResult LispVal
-binOp _ _ _ [_] = Left $ ArgError 2 1
-binOp _ _ _ [] = Left $ ArgError 2 0
+binOp _ _ _ [_] = throwError $ ArgError 2 1
+binOp _ _ _ [] = throwError $ ArgError 2 0
 binOp pack unpack foldOp args = fmap (pack . foldOp) (mapM unpack args)
 
 arithBinOp :: (Integer -> Integer -> Integer) -> [LispVal] -> EvalResult LispVal
@@ -42,22 +43,22 @@ strCompBinOp op = binOp Bool unpackString $ foldComp op
 car :: [LispVal] -> EvalResult LispVal
 car [List (x : _)] = return x
 car [DottedList (x : _) _] = return x
-car [_] = Left $ TypeError "list"
-car args = Left $ ArgError 1 (length args)
+car [_] = throwError $ TypeError "list"
+car args = throwError $ ArgError 1 (length args)
 
 cdr :: [LispVal] -> EvalResult LispVal
 cdr [List (_ : xs)] = return $ List xs
 cdr [DottedList [_] x] = return x
 cdr [DottedList (_ : xs) x] = return $ DottedList xs x
-cdr [_] = Left $ TypeError "list"
-cdr args = Left $ ArgError 1 (length args)
+cdr [_] = throwError $ TypeError "list"
+cdr args = throwError $ ArgError 1 (length args)
 
 cons :: [LispVal] -> EvalResult LispVal
 cons [x1, List []] = return $ List [x1]
 cons [x1, List xs] = return $ List (x1 : xs)
 cons [x1, DottedList xs last_] = return $ DottedList (x1 : xs) last_
 cons [x1, x2] = return $ DottedList [x1] x2
-cons args = Left $ ArgError 2 (length args)
+cons args = throwError $ ArgError 2 (length args)
 
 -- eq and eqv can be the same according to r7rs:
 -- It must always return #f when eqv? also would,
@@ -69,7 +70,7 @@ eqv [Atom a, Atom b] = return $ Bool $ a == b -- can only happen if symbol becau
 eqv [String a, String b] = return $ Bool $ a == b
 eqv [List [], List []] = return $ Bool True
 eqv [_, _] = return $ Bool False
-eqv args = Left $ ArgError 2 (length args)
+eqv args = throwError $ ArgError 2 (length args)
 
 -- same as eqv but can be used for lists as well
 equal :: [LispVal] -> EvalResult LispVal
@@ -129,10 +130,13 @@ builtins =
     ("or", orOp)
   ]
 
-apply :: T.Text -> [LispVal] -> EvalResult LispVal
-apply op args = case lookup op builtins of
-  Just f -> f args
-  Nothing -> Left $ BasicError $ T.concat [op, " function does not exist"]
+applyOp :: LispVal -> [LispVal] -> EvalResult LispVal
+applyOp op args = do
+  op' <- evalExpr op
+  args' <- mapM evalExpr args
+  case op' of
+    Func (Fn f) -> f args'
+    _ -> throwError $ BasicError "operator must be a function"
 
 ifExpr :: LispVal -> LispVal -> LispVal -> EvalResult LispVal
 ifExpr cond then_expr else_expr = do
@@ -142,17 +146,48 @@ ifExpr cond then_expr else_expr = do
     Bool False -> evalExpr else_expr
     _ -> evalExpr then_expr
 
+defineVar :: LispVal -> LispVal -> EvalResult LispVal
+defineVar (Atom ident) expr = do
+  modify addToLastEnv
+  return Undefined
+  where
+    addToLastEnv (current : rest) = let new_current = Map.insert ident expr current in new_current : rest
+    addToLastEnv [] = error "unreachable: global environment should always exist"
+defineVar _ _ = throwError $ TypeError "identifier"
+
+getVar :: T.Text -> EvalResult LispVal
+getVar ident = do
+  env <- get
+  -- TODO: flatten all envs into single big env to search
+  case Map.lookup ident (head env) of
+    Just n -> return n
+    Nothing -> throwError $ UnboundVar ident
+
+-- TODO: would be better to do with ReaderT and local for automatic scoping
+enter :: EvalResult ()
+enter =
+  modify ((Map.empty :: Map.Map T.Text LispVal) :)
+
+exit :: EvalResult ()
+exit =
+  modify tail
+
 evalExpr :: LispVal -> EvalResult LispVal
-evalExpr (List [Atom "quote", x]) = return x
+evalExpr (List [Atom "quote", expr]) = return expr
 evalExpr (List [Atom "if", cond, then_expr, else_expr]) = ifExpr cond then_expr else_expr
 evalExpr (List [Atom "if", cond, then_expr]) = ifExpr cond then_expr Undefined
-evalExpr (List (Atom op : rest)) = mapM evalExpr rest >>= apply op
-evalExpr (List (op : _)) = Left $ BasicError "operator must be a function"
+evalExpr (List [Atom "define", ident, expr]) = defineVar ident expr
+evalExpr (Atom ident) = getVar ident
+evalExpr (List (first : rest)) = applyOp first rest
 -- evalExpr (DottedList (op : rest)) = apply op $ map evalExpr rest
-evalExpr (Atom _) = error "todo: lookup a value"
 evalExpr expr = return expr
 
+builtinEnv :: [Map.Map T.Text LispVal]
+builtinEnv = [Map.fromList $ map toFunc builtins]
+  where
+    toFunc (ident, f) = (ident, Func (Fn f))
+
 eval :: LispVal -> Either SchemeError LispVal
-eval expr = case evalExpr expr of
+eval expr = case runExcept $ runStateT (evalExpr expr) builtinEnv of
   Left err -> Left $ Eval err
-  Right val -> return val
+  Right (val, _) -> return val

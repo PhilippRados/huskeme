@@ -60,11 +60,14 @@ library
       Parser
       Error
       Eval
+      Types
 
     hs-source-dirs:  lib/
     build-depends: base ^>=4.17.2.1
       , text
       , parsec
+      , containers
+      , mtl
 
 executable lispeln
     import:           warnings

@@ -1,7 +1,11 @@
-#! /usr/local/bin/csi -script
-(define a '(1 .  '(2 . 3)))
+;; (if #t (define a 2) (define a 3))
 
-(define name '("hello" "uwe"  ))
+(define a 2)
+(define a 3)
 
-;; (display (string<? "abc" "bba"))
-(display (if #f (display "foo") (display "bar")))
+(display a)
+
+(begin (display a))
+
+(define (summing . elems)
+    (apply + elems))

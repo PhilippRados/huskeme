@@ -7,6 +7,7 @@ import Error
 import Eval
 import Parser
 import Test.Hspec
+import Types
 
 main :: IO ()
 main = hspec $ do
@@ -138,6 +139,10 @@ testEval =
 
 assertEval :: (HasCallStack) => Text -> LispVal -> Expectation
 assertEval expr expected =
+  (readExpr expr >>= eval) `shouldBe` Right expected
+
+assertEvalEnv :: (HasCallStack) => Text -> LispVal -> Expectation
+assertEvalEnv expr env expected =
   (readExpr expr >>= eval) `shouldBe` Right expected
 
 assertEvalErr :: (HasCallStack) => Text -> Expectation

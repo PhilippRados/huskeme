@@ -1,35 +1,15 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module Parser
-  ( LispVal (..),
-    parseExpr,
+  ( parseExpr,
     readExpr,
   )
 where
 
-import Data.Text as T
+import qualified Data.Text as T
 import Error
 import Text.ParserCombinators.Parsec hiding (spaces)
-
-data LispVal
-  = Atom T.Text
-  | List [LispVal]
-  | DottedList [LispVal] LispVal
-  | Number Integer
-  | String T.Text
-  | Bool Bool
-  | Undefined
-  deriving (Eq)
-
-instance Show LispVal where
-  show (Atom atom) = T.unpack atom
-  show (String str) = "\"" ++ T.unpack str ++ "\""
-  show (Number num) = show num
-  show (Bool True) = "#t"
-  show (Bool False) = "#f"
-  show (List contents) = "(" ++ Prelude.unwords (show <$> contents) ++ ")"
-  show (DottedList contents last_) = "(" ++ Prelude.unwords (show <$> contents) ++ " . " ++ show last_ ++ ")"
-  show Undefined = "<undefined>"
+import Types
 
 spaces :: Parser ()
 spaces = skipMany1 space
