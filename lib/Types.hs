@@ -1,4 +1,4 @@
-module Types (LispVal (..), EvalResult, Fn (..)) where
+module Types (LispVal (..), EvalResult, Fn (..), Env) where
 
 import Control.Monad.Except
 import Control.Monad.State
@@ -34,4 +34,5 @@ instance Show LispVal where
   show (Bool False) = "#f"
   show (List contents) = "(" ++ Prelude.unwords (show <$> contents) ++ ")"
   show (DottedList contents last_) = "(" ++ Prelude.unwords (show <$> contents) ++ " . " ++ show last_ ++ ")"
+  show (Func (Fn _)) = "<function>"
   show Undefined = "<undefined>"

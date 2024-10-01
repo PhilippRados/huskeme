@@ -12,5 +12,10 @@ main = do
   args <- getArgs
   case args of
     [] -> runRepl >> return ()
-    [file] -> readFile file >>= putStrLn . runLine
+    [file] -> readFile file >>= putStrLn . runFile
     _ -> putStrLn "usage: lispeln [<file>]"
+
+runFile :: String -> String
+runFile input = case readExpr (T.pack input) >>= eval of
+  Left err -> formatError err input
+  Right val -> show val

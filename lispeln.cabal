@@ -62,6 +62,7 @@ library
       Eval
       Types
       Repl
+      Builtins
 
     hs-source-dirs:  lib/
     build-depends: base ^>=4.17.2.1

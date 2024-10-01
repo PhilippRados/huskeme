@@ -17,32 +17,32 @@ main = hspec $ do
 testParse =
   describe "readExpr" $ do
     it "parses bools" $ do
-      readExpr "#t" `shouldBe` Right (Bool True)
-      readExpr "#f" `shouldBe` Right (Bool False)
+      assertParse "#t" [Bool True]
+      assertParse "#f" [Bool False]
 
     it "parses strings" $ do
-      readExpr "\"hello\"" `shouldBe` Right (String "hello")
-      readExpr "\"\"" `shouldBe` Right (String "")
+      assertParse "\"hello\"" [String "hello"]
+      assertParse "\"\"" [String ""]
 
     it "parses atoms" $ do
-      readExpr "abc" `shouldBe` Right (Atom "abc")
-      readExpr "a1bc" `shouldBe` Right (Atom "a1bc")
+      assertParse "abc" [Atom "abc"]
+      assertParse "a1bc" [Atom "a1bc"]
       readExpr "(1abc)" `shouldSatisfy` isLeft
 
     it "parses nums" $ do
-      readExpr "1 abc" `shouldBe` Right (Number 1)
+      assertParse "1 abc" [Number 1, Atom "abc"]
 
     it "parses lists" $ do
-      readExpr "(+ 2 3)" `shouldBe` Right (List [Atom "+", Number 2, Number 3])
-      readExpr "(+ (- 2 10) 3)" `shouldBe` Right (List [Atom "+", List [Atom "-", Number 2, Number 10], Number 3])
+      assertParse "(+ 2 3)" [List [Atom "+", Number 2, Number 3]]
+      assertParse "(+ (- 2 10) 3)" [List [Atom "+", List [Atom "-", Number 2, Number 10], Number 3]]
 
     it "parses dotted-lists" $ do
-      readExpr "(1 .  (2 . 3))" `shouldBe` Right (DottedList [Number 1] (DottedList [Number 2] (Number 3)))
+      assertParse "(1 .  (2 . 3))" [DottedList [Number 1] (DottedList [Number 2] (Number 3))]
 
     it "parses quote" $ do
-      readExpr "'(1 2 3)" `shouldBe` Right (List [Atom "quote", List [Number 1, Number 2, Number 3]])
-      readExpr "'(+ 1 2)" `shouldBe` Right (List [Atom "quote", List [Atom "+", Number 1, Number 2]])
-      readExpr "(quote (+ 1 2))" `shouldBe` Right (List [Atom "quote", List [Atom "+", Number 1, Number 2]])
+      assertParse "'(1 2 3)" [List [Atom "quote", List [Number 1, Number 2, Number 3]]]
+      assertParse "'(+ 1 2)" [List [Atom "quote", List [Atom "+", Number 1, Number 2]]]
+      assertParse "(quote (+ 1 2))" [List [Atom "quote", List [Atom "+", Number 1, Number 2]]]
 
 testEval =
   describe "evalExpr" $ do
@@ -136,6 +136,10 @@ testEval =
       assertEval "(or (= 2 2) (> 2 1))" (Bool True)
       assertEval "(or (= 2 2) (< 2 1))" (Bool True)
       assertEval "(or #f #f #f)" (Bool False)
+
+assertParse :: (HasCallStack) => Text -> [LispVal] -> Expectation
+assertParse exprs expected =
+  readExpr exprs `shouldBe` Right expected
 
 assertEval :: (HasCallStack) => Text -> LispVal -> Expectation
 assertEval expr expected =
