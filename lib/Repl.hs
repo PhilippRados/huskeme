@@ -1,8 +1,6 @@
-module Repl (runRepl) where
+module Repl (runRepl, runScheme) where
 
-import Builtins (builtinEnv)
 import Control.Monad.Except
-import Control.Monad.State
 import qualified Data.Text as T (pack)
 import Error
 import Eval
@@ -14,7 +12,6 @@ import System.Console.Haskeline
     outputStrLn,
     runInputT,
   )
-import Types
 
 runRepl :: IO ()
 runRepl = runInputT defaultSettings repl
@@ -25,10 +22,10 @@ repl = do
   case minput of
     Nothing -> outputStrLn "Goodbye."
     Just ":quit" -> outputStrLn "Goodbye."
-    Just input -> liftIO (putStrLn $ runLine input) >> repl
+    Just input -> liftIO (putStrLn $ runScheme input) >> repl
 
-runLine :: String -> String
-runLine input = case readExpr (T.pack input) >>= eval of
+runScheme :: String -> String
+runScheme input = case readExprs (T.pack input) >>= eval of
   Left err -> formatError err input
   Right val -> show val
 

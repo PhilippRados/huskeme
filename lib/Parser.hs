@@ -1,10 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Parser
-  ( parseExpr,
-    readExpr,
-  )
-where
+module Parser (readExprs) where
 
 import qualified Data.Text as T
 import Error
@@ -71,7 +67,7 @@ parseExpr = parseString <|> parseBool <|> parseAtom <|> parseNumber <|> parseLis
 parseAll :: Parser [LispVal]
 parseAll = many (skipMany space *> parseExpr <* skipMany space) <* eof
 
-readExpr :: T.Text -> Either SchemeError [LispVal]
-readExpr input = case parse parseAll "<stdin>" (T.unpack input) of
+readExprs :: T.Text -> Either SchemeError [LispVal]
+readExprs input = case parse parseAll "<stdin>" (T.unpack input) of
   Left err -> Left $ Parse err
   Right val -> return val

@@ -1,3 +1,3 @@
-(define a 3)
+(define a 1)
 (define b 7)
 (+ a (- a b))

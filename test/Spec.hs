@@ -1,11 +1,13 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 import Control.Exception.Base
+import Control.Monad.IO.Class (liftIO)
 import Data.Either
-import Data.Text (Text)
+import Data.Text (Text, pack)
 import Error
 import Eval
 import Parser
+import Repl
 import Test.Hspec
 import Types
 
@@ -13,6 +15,7 @@ main :: IO ()
 main = hspec $ do
   testParse
   testEval
+  testFixtures
 
 testParse =
   describe "readExpr" $ do
@@ -27,7 +30,7 @@ testParse =
     it "parses atoms" $ do
       assertParse "abc" [Atom "abc"]
       assertParse "a1bc" [Atom "a1bc"]
-      readExpr "(1abc)" `shouldSatisfy` isLeft
+      assertParseErr "(1abc)"
 
     it "parses nums" $ do
       assertParse "1 abc" [Number 1, Atom "abc"]
@@ -137,17 +140,31 @@ testEval =
       assertEval "(or (= 2 2) (< 2 1))" (Bool True)
       assertEval "(or #f #f #f)" (Bool False)
 
+testFixtures =
+  describe "environment" $ do
+    it "nested variables" $ do
+      assertFile "arith.scm" (Number (-5))
+
+assertFile :: (HasCallStack) => String -> LispVal -> Expectation
+assertFile file expected = do
+  contents <- liftIO $ readFile ("fixtures/" ++ file)
+  (readExprs (pack contents) >>= eval) `shouldBe` Right expected
+
 assertParse :: (HasCallStack) => Text -> [LispVal] -> Expectation
 assertParse exprs expected =
-  readExpr exprs `shouldBe` Right expected
+  readExprs exprs `shouldBe` Right expected
+
+assertParseErr :: (HasCallStack) => Text -> Expectation
+assertParseErr expr =
+  readExprs expr `shouldSatisfyWithMessage` isLeft
 
 assertEval :: (HasCallStack) => Text -> LispVal -> Expectation
 assertEval expr expected =
-  (readExpr expr >>= eval) `shouldBe` Right expected
+  (readExprs expr >>= eval) `shouldBe` Right expected
 
 assertEvalErr :: (HasCallStack) => Text -> Expectation
 assertEvalErr expr =
-  (readExpr expr >>= eval) `shouldSatisfyWithMessage` isLeft
+  (readExprs expr >>= eval) `shouldSatisfyWithMessage` isLeft
 
 shouldSatisfyWithMessage :: (Show a) => a -> (a -> Bool) -> Expectation
 shouldSatisfyWithMessage actual predicate =
