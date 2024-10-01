@@ -41,6 +41,7 @@ formatParseError err input =
           "unexpected"
           "end of input"
       msg = replaceNewlines $ drop 1 $ customMessage $ errorMessages err
+      errorLine = (lines input) !! line
       markedError = markError line input column
    in highlight "Error: " ++ msg ++ "\n |--> " ++ source ++ ":" ++ show line ++ ":" ++ show column ++ "\n" ++ markedError
 

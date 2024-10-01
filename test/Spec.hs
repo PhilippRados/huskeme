@@ -141,10 +141,6 @@ assertEval :: (HasCallStack) => Text -> LispVal -> Expectation
 assertEval expr expected =
   (readExpr expr >>= eval) `shouldBe` Right expected
 
-assertEvalEnv :: (HasCallStack) => Text -> LispVal -> Expectation
-assertEvalEnv expr env expected =
-  (readExpr expr >>= eval) `shouldBe` Right expected
-
 assertEvalErr :: (HasCallStack) => Text -> Expectation
 assertEvalErr expr =
   (readExpr expr >>= eval) `shouldSatisfyWithMessage` isLeft

@@ -61,6 +61,7 @@ library
       Error
       Eval
       Types
+      Repl
 
     hs-source-dirs:  lib/
     build-depends: base ^>=4.17.2.1
@@ -68,6 +69,7 @@ library
       , parsec
       , containers
       , mtl
+      , haskeline
 
 executable lispeln
     import:           warnings

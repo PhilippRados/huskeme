@@ -1,3 +1,2 @@
-#! /usr/local/bin/csi -script
-(display "Hello, World!")
-(newline)
+(+ 1 a)
+(+ 1 7)
