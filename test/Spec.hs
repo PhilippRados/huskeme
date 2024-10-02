@@ -40,7 +40,7 @@ testParse =
       assertParse "(+ (- 2 10) 3)" [List [Atom "+", List [Atom "-", Number 2, Number 10], Number 3]]
 
     it "parses dotted-lists" $ do
-      assertParse "(1 .  (2 . 3))" [DottedList [Number 1] (DottedList [Number 2] (Number 3))]
+      assertParse "(1 .  (2 . 3))" [DottedList [Number 1, Number 2] (Number 3)]
 
     it "parses quote" $ do
       assertParse "'(1 2 3)" [List [Atom "quote", List [Number 1, Number 2, Number 3]]]
@@ -104,6 +104,19 @@ testEval =
       assertEval "(cons \"a\" '(b c))" (List [String "a", Atom "b", Atom "c"])
       assertEval "(cons 'a 3)" (DottedList [Atom "a"] (Number 3))
       assertEval "(cons '(a b) 'c)" (DottedList [List [Atom "a", Atom "b"]] (Atom "c"))
+      assertEval "(cons 1 '(2 . ()))" (List [Number 1, Number 2])
+
+    it "dot operations" $ do
+      assertEval "(+ . (5 6))" (Number 11)
+      assertEval "'(+ . (5 6))" (List [Atom "+", Number 5, Number 6])
+      assertEval "'(+ . (5 . (6 . ())))" (List [Atom "+", Number 5, Number 6])
+      assertEval "'(+ . (5 . 6))" (DottedList [Atom "+", Number 5] (Number 6))
+      assertEval "'(+ 1 2 . (5 . (6 7 . ())))" (List [Atom "+", Number 1, Number 2, Number 5, Number 6, Number 7])
+      assertEval "(+ 1 . (5 6))" (Number 12)
+      assertEvalErr "(+ . (5 . 6))"
+      assertEvalErr "(cons + (5 6))"
+      assertEvalErr "((+ 1 1) . (3))"
+      assertEvalErr "(cons + (3))"
 
     it "equality operations" $ do
       assertEval "(eqv? 'a 'a)" (Bool True)

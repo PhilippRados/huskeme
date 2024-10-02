@@ -61,7 +61,7 @@ evalExpr (List [Atom "if", cond, then_expr]) = ifExpr cond then_expr Undefined
 evalExpr (List [Atom "define", ident, expr]) = defineVar ident expr
 evalExpr (Atom ident) = getVar ident
 evalExpr (List (first : rest)) = applyOp first rest
--- evalExpr (DottedList (op : rest)) = apply op $ map evalExpr rest
+evalExpr (DottedList _ _) = throwError $ BasicError "cannot evaluate improper list"
 evalExpr expr = return expr
 
 -- TODO: have to change this for repl session

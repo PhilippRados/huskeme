@@ -12,8 +12,10 @@ type EvalResult a = StateT [Env] (Except EvalError) a
 
 data LispVal
   = Atom T.Text
-  | List [LispVal]
-  | DottedList [LispVal] LispVal
+  | -- proper list that terminates with empty list: (1 . (2 . (3 . ()))) => (1 2 3)
+    List [LispVal]
+  | -- improper list that doesn't terminate with empty list: (1 . (2 . 3)) => (1 2 . 3)
+    DottedList [LispVal] LispVal
   | Number Integer
   | String T.Text
   | Bool Bool

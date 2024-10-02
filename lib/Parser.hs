@@ -46,7 +46,17 @@ parseDottedList :: Parser LispVal
 parseDottedList = do
   elems <- endBy parseExpr spaces
   _ <- char '.' >> spaces
-  DottedList elems <$> parseExpr
+  cons elems <$> parseExpr
+  where
+    -- tries to combine operands into proper list, if not then is improper (dotted)
+    cons :: [LispVal] -> LispVal -> LispVal
+    cons car (List []) = List car
+    cons car (List cdr) = List $ car ++ cdr
+    cons car (DottedList xs last_') = case cons xs last_' of
+      List cdr -> List $ car ++ cdr
+      DottedList xs' last_'' -> DottedList (car ++ xs') last_''
+      _ -> error "unreachable cons can only return lists"
+    cons car cdr = DottedList car cdr
 
 parseLists :: Parser LispVal
 parseLists = do
