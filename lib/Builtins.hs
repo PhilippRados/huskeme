@@ -22,8 +22,8 @@ binOp _ _ _ [_] = throwError $ ArgError 2 1
 binOp _ _ _ [] = throwError $ ArgError 2 0
 binOp pack unpack foldOp args = fmap (pack . foldOp) (mapM unpack args)
 
-arithBinOp :: (Integer -> Integer -> Integer) -> [LispVal] -> EvalResult LispVal
-arithBinOp op = binOp Number unpackNum $ foldl1 op
+arithOp :: (Integer -> Integer -> Integer) -> [LispVal] -> EvalResult LispVal
+arithOp op = binOp Number unpackNum $ foldl1 op
 
 -- allows folding values to boolean types instead of only the lists type
 foldComp :: (a -> a -> Bool) -> [a] -> Bool
@@ -33,11 +33,11 @@ foldComp op (x' : xs') = innerFold True x' xs'
     innerFold acc _ [] = acc
     innerFold acc prev (x : xs) = innerFold (op prev x && acc) x xs
 
-numCompBinOp :: (Integer -> Integer -> Bool) -> [LispVal] -> EvalResult LispVal
-numCompBinOp op = binOp Bool unpackNum $ foldComp op
+numCompOp :: (Integer -> Integer -> Bool) -> [LispVal] -> EvalResult LispVal
+numCompOp op = binOp Bool unpackNum $ foldComp op
 
-strCompBinOp :: (T.Text -> T.Text -> Bool) -> [LispVal] -> EvalResult LispVal
-strCompBinOp op = binOp Bool unpackString $ foldComp op
+strCompOp :: (T.Text -> T.Text -> Bool) -> [LispVal] -> EvalResult LispVal
+strCompOp op = binOp Bool unpackString $ foldComp op
 
 car :: [LispVal] -> EvalResult LispVal
 car [List (x : _)] = return x
@@ -106,23 +106,23 @@ builtinEnv = [Map.fromList $ map toFunc builtins]
 -- https://standards.scheme.org/corrected-r7rs/r7rs-Z-H-8.html#TAG:__tex2page_chap_6
 builtins :: [(T.Text, [LispVal] -> EvalResult LispVal)]
 builtins =
-  [ ("+", arithBinOp (+)),
-    ("-", arithBinOp (-)),
-    ("*", arithBinOp (*)),
-    ("/", arithBinOp div),
-    ("mod", arithBinOp mod),
-    ("quotient", arithBinOp quot),
-    ("remainder", arithBinOp rem),
-    ("=", numCompBinOp (==)),
-    ("<", numCompBinOp (<)),
-    (">", numCompBinOp (>)),
-    (">=", numCompBinOp (>=)),
-    ("<=", numCompBinOp (<=)),
-    ("string=?", strCompBinOp (==)),
-    ("string<?", strCompBinOp (<)),
-    ("string>?", strCompBinOp (>)),
-    ("string<=?", strCompBinOp (<=)),
-    ("string>=?", strCompBinOp (>=)),
+  [ ("+", arithOp (+)),
+    ("-", arithOp (-)),
+    ("*", arithOp (*)),
+    ("/", arithOp div),
+    ("mod", arithOp mod),
+    ("quotient", arithOp quot),
+    ("remainder", arithOp rem),
+    ("=", numCompOp (==)),
+    ("<", numCompOp (<)),
+    (">", numCompOp (>)),
+    (">=", numCompOp (>=)),
+    ("<=", numCompOp (<=)),
+    ("string=?", strCompOp (==)),
+    ("string<?", strCompOp (<)),
+    ("string>?", strCompOp (>)),
+    ("string<=?", strCompOp (<=)),
+    ("string>=?", strCompOp (>=)),
     ("car", car),
     ("cdr", cdr),
     ("cons", cons),
