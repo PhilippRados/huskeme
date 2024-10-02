@@ -15,7 +15,18 @@ applyOp op args = do
   op' <- evalExpr op
   args' <- mapM evalExpr args
   case op' of
-    Func (Fn f) -> f args'
+    Func (InternalFn f) -> f args'
+    (Lambda params body) ->
+      if length params /= length args
+        then throwError $ ArgError (length params) (length args)
+        else do
+          enter
+          _ <- mapM (\(p, expr) -> defineVar p expr) $ zip params args
+          result <- evalBody
+          exit
+          return $ last result
+      where
+        evalBody = mapM evalExpr body
     _ -> throwError $ BasicError "operator must be a function"
 
 ifExpr :: LispVal -> LispVal -> LispVal -> EvalResult LispVal
@@ -37,13 +48,28 @@ defineVar (Atom ident) expr = do
     addToLastEnv [] = error "unreachable: global environment should always exist"
 defineVar _ _ = throwError $ TypeError "identifier"
 
+defineFunc :: T.Text -> [LispVal] -> [LispVal] -> EvalResult LispVal
+defineFunc name params body = do
+  modify addToLastEnv
+  return Undefined
+  where
+    addToLastEnv (current : rest) =
+      let new_current = Map.insert name (Lambda params body) current
+       in new_current : rest
+    addToLastEnv [] = error "unreachable: global environment should always exist"
+
 getVar :: T.Text -> EvalResult LispVal
 getVar ident = do
   env <- get
-  -- TODO: flatten all envs into single big env to search
-  case Map.lookup ident (head env) of
-    Just n -> return n
-    Nothing -> throwError $ UnboundVar ident
+  searchEnv ident env
+  where
+    searchEnv :: T.Text -> [Env] -> EvalResult LispVal
+    searchEnv ident' (current : rest) = case Map.lookup ident' current of
+      Just n -> return n
+      Nothing ->
+        if null rest
+          then throwError $ UnboundVar ident
+          else searchEnv ident' rest
 
 -- TODO: would be better to do with ReaderT and local for automatic scoping
 enter :: EvalResult ()
@@ -58,6 +84,7 @@ evalExpr :: LispVal -> EvalResult LispVal
 evalExpr (List [Atom "quote", expr]) = return expr
 evalExpr (List [Atom "if", cond, then_expr, else_expr]) = ifExpr cond then_expr else_expr
 evalExpr (List [Atom "if", cond, then_expr]) = ifExpr cond then_expr Undefined
+evalExpr (List (Atom "define" : List (Atom name : args) : body)) = defineFunc name args body
 evalExpr (List [Atom "define", ident, expr]) = defineVar ident expr
 evalExpr (Atom ident) = getVar ident
 evalExpr (List (first : rest)) = applyOp first rest

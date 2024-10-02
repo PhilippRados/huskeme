@@ -100,7 +100,7 @@ orOp args = return $ case find (/= Bool False) args of
 builtinEnv :: [Map.Map T.Text LispVal]
 builtinEnv = [Map.fromList $ map toFunc builtins]
   where
-    toFunc (ident, f) = (ident, Func (Fn f))
+    toFunc (ident, f) = (ident, Func (InternalFn f))
 
 -- these are builtin functions according to the r7rs standard:
 -- https://standards.scheme.org/corrected-r7rs/r7rs-Z-H-8.html#TAG:__tex2page_chap_6

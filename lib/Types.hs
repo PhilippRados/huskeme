@@ -1,4 +1,4 @@
-module Types (LispVal (..), EvalResult, Fn (..), Env) where
+module Types (LispVal (..), EvalResult, InternalFn (..), Env) where
 
 import Control.Monad.Except
 import Control.Monad.State
@@ -19,13 +19,17 @@ data LispVal
   | Number Integer
   | String T.Text
   | Bool Bool
-  | Func Fn
+  | Func InternalFn
+  | Lambda
+      { lambdaParams :: [LispVal],
+        lambdaBody :: [LispVal]
+      }
   | Undefined
   deriving (Eq)
 
-data Fn = Fn {fn :: [LispVal] -> EvalResult LispVal}
+newtype InternalFn = InternalFn {fn :: [LispVal] -> EvalResult LispVal}
 
-instance Eq Fn where
+instance Eq InternalFn where
   _ == _ = False
 
 instance Show LispVal where
@@ -36,5 +40,6 @@ instance Show LispVal where
   show (Bool False) = "#f"
   show (List contents) = "(" ++ Prelude.unwords (show <$> contents) ++ ")"
   show (DottedList contents last_) = "(" ++ Prelude.unwords (show <$> contents) ++ " . " ++ show last_ ++ ")"
-  show (Func (Fn _)) = "<function>"
+  show (Func _) = "<builtin-function>"
+  show (Lambda {lambdaParams = args, lambdaBody = _}) = "<lambda (" ++ unwords (map show args) ++ ")>"
   show Undefined = "<undefined>"

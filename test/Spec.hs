@@ -157,6 +157,8 @@ testFixtures =
   describe "environment" $ do
     it "nested variables" $ do
       assertFile "arith.scm" (Number (-5))
+      assertFile "functions.scm" (Number 21)
+      assertFile "factorial.scm" (Number 3628800)
 
 assertFile :: (HasCallStack) => String -> LispVal -> Expectation
 assertFile file expected = do
