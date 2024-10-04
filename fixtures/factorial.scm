@@ -3,4 +3,4 @@
     1
     (* x (factorial (- x 1)))))
 
-(display (factorial 10))
+(factorial 10)

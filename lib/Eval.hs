@@ -11,11 +11,11 @@ import Error
 import Types
 
 applyOp :: LispVal -> [LispVal] -> EvalResult LispVal
-applyOp op args = do
-  op' <- evalExpr op
-  args' <- mapM evalExpr args
-  case op' of
-    Func (InternalFn f) -> f args'
+applyOp first rest = do
+  op <- evalExpr first
+  args <- mapM evalExpr rest
+  case op of
+    Func (InternalFn f) -> f args
     (Lambda params body) ->
       if length params /= length args
         then throwError $ ArgError (length params) (length args)
