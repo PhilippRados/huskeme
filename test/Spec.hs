@@ -154,11 +154,18 @@ testEval =
       assertEval "(or #f #f #f)" (Bool False)
 
 testFixtures =
-  describe "environment" $ do
+  describe "fixtures" $ do
     it "nested variables" $ do
       assertFile "arith.scm" (Number (-5))
+
+    it "global variables and functions" $ do
       assertFile "functions.scm" (Number 21)
+
+    it "recursive functions" $ do
       assertFile "factorial.scm" (Number 3628800)
+
+    it "currying functions" $ do
+      assertFile "curry.scm" (Number 9)
 
 assertFile :: (HasCallStack) => String -> LispVal -> Expectation
 assertFile file expected = do
