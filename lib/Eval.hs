@@ -70,9 +70,12 @@ exit :: EvalResult ()
 exit =
   modify tail
 
-unpackAtom :: LispVal -> EvalResult T.Text
-unpackAtom (Atom ident) = return ident
-unpackAtom _ = throwError $ TypeError "identifier"
+lambda :: [LispVal] -> [LispVal] -> EvalResult LispVal
+lambda args body = mapM unpackAtom args >>= \params -> return (Lambda params body)
+  where
+    unpackAtom :: LispVal -> EvalResult T.Text
+    unpackAtom (Atom ident) = return ident
+    unpackAtom _ = throwError $ TypeError "identifier"
 
 evalExpr :: LispVal -> EvalResult LispVal
 evalExpr (List [Atom "quote", expr]) = return expr
@@ -80,7 +83,8 @@ evalExpr (List [Atom "if", cond, then_expr, else_expr]) = ifExpr cond then_expr 
 evalExpr (List [Atom "if", cond, then_expr]) = ifExpr cond then_expr Undefined
 evalExpr (List (Atom "if" : args)) = throwError $ ArgError 2 (length args)
 evalExpr (List [Atom "define", Atom name, expr]) = define name expr
-evalExpr (List (Atom "define" : List (Atom name : args) : body)) = mapM unpackAtom args >>= \params -> define name (Lambda params body)
+evalExpr (List (Atom "define" : List (Atom name : args) : body)) = lambda args body >>= define name
+evalExpr (List (Atom "lambda" : List args : body)) = lambda args body
 evalExpr (List (Atom "define" : _)) = throwError $ BasicError "define expects identifier or function definition"
 evalExpr (Atom ident) = getVar ident
 evalExpr (List (first : rest)) = applyOp first rest

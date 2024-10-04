@@ -167,6 +167,9 @@ testFixtures =
     it "currying functions" $ do
       assertFile "curry.scm" (Number 9)
 
+    it "anonymous functions" $ do
+      assertFile "lambda.scm" (Number 123)
+
 assertFile :: (HasCallStack) => String -> LispVal -> Expectation
 assertFile file expected = do
   contents <- liftIO $ readFile ("fixtures/" ++ file)
