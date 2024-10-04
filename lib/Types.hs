@@ -21,7 +21,7 @@ data LispVal
   | Bool Bool
   | Func InternalFn
   | Lambda
-      { lambdaParams :: [LispVal],
+      { lambdaParams :: [T.Text],
         lambdaBody :: [LispVal]
       }
   | Undefined

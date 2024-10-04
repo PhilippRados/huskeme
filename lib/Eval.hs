@@ -21,7 +21,7 @@ applyOp first rest = do
         then throwError $ ArgError (length params) (length args)
         else do
           enter
-          _ <- mapM (\(p, expr) -> defineVar p expr) $ zip params args
+          _ <- zipWithM define params args
           result <- evalBody
           exit
           return $ last result
@@ -37,24 +37,13 @@ ifExpr cond then_expr else_expr = do
     Bool False -> evalExpr else_expr
     _ -> evalExpr then_expr
 
-defineVar :: LispVal -> LispVal -> EvalResult LispVal
-defineVar (Atom ident) expr = do
+define :: T.Text -> LispVal -> EvalResult LispVal
+define name value = do
   modify addToLastEnv
   return Undefined
   where
     addToLastEnv (current : rest) =
-      let new_current = Map.insert ident expr current
-       in new_current : rest
-    addToLastEnv [] = error "unreachable: global environment should always exist"
-defineVar _ _ = throwError $ TypeError "identifier"
-
-defineFunc :: T.Text -> [LispVal] -> [LispVal] -> EvalResult LispVal
-defineFunc name params body = do
-  modify addToLastEnv
-  return Undefined
-  where
-    addToLastEnv (current : rest) =
-      let new_current = Map.insert name (Lambda params body) current
+      let new_current = Map.insert name value current
        in new_current : rest
     addToLastEnv [] = error "unreachable: global environment should always exist"
 
@@ -70,6 +59,7 @@ getVar ident = do
         if null rest
           then throwError $ UnboundVar ident
           else searchEnv ident' rest
+    searchEnv _ [] = error "unreachable: global environment should always exist"
 
 -- TODO: would be better to do with ReaderT and local for automatic scoping
 enter :: EvalResult ()
@@ -80,22 +70,22 @@ exit :: EvalResult ()
 exit =
   modify tail
 
+unpackAtom :: LispVal -> EvalResult T.Text
+unpackAtom (Atom ident) = return ident
+unpackAtom _ = throwError $ TypeError "identifier"
+
 evalExpr :: LispVal -> EvalResult LispVal
 evalExpr (List [Atom "quote", expr]) = return expr
 evalExpr (List [Atom "if", cond, then_expr, else_expr]) = ifExpr cond then_expr else_expr
 evalExpr (List [Atom "if", cond, then_expr]) = ifExpr cond then_expr Undefined
-evalExpr (List (Atom "define" : List (Atom name : args) : body)) = defineFunc name args body
-evalExpr (List [Atom "define", ident, expr]) = defineVar ident expr
+evalExpr (List (Atom "if" : args)) = throwError $ ArgError 2 (length args)
+evalExpr (List [Atom "define", Atom name, expr]) = define name expr
+evalExpr (List (Atom "define" : List (Atom name : args) : body)) = mapM unpackAtom args >>= \params -> define name (Lambda params body)
+evalExpr (List (Atom "define" : _)) = throwError $ BasicError "define expects identifier or function definition"
 evalExpr (Atom ident) = getVar ident
 evalExpr (List (first : rest)) = applyOp first rest
 evalExpr (DottedList _ _) = throwError $ BasicError "cannot evaluate improper list"
 evalExpr expr = return expr
-
--- TODO: have to change this for repl session
--- eval :: LispVal -> StateT [Env] (Except SchemeError) LispVal
--- eval expr = do
---   env <- get
---   lift $ withExcept Eval $ evalStateT (evalExpr expr) env
 
 eval :: [LispVal] -> Either SchemeError LispVal
 eval exprs = case runExcept $ evalStateT (mapM evalExpr exprs) builtinEnv of
