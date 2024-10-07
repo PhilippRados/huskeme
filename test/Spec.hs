@@ -153,6 +153,10 @@ testEval =
       assertEval "(or (= 2 2) (< 2 1))" (Bool True)
       assertEval "(or #f #f #f)" (Bool False)
 
+    it "set!" $ do
+      assertEval "(define f 5) (set! f 2) f" (Number 2)
+      assertEvalErr "(set! f 2)"
+
 testFixtures =
   describe "fixtures" $ do
     it "nested variables" $ do
@@ -169,6 +173,9 @@ testFixtures =
 
     it "anonymous functions" $ do
       assertFile "lambda.scm" (Number 123)
+
+    it "scoped assignment" $ do
+      assertFile "assign.scm" (Number 5)
 
 assertFile :: (HasCallStack) => String -> LispVal -> Expectation
 assertFile file expected = do

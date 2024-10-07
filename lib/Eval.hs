@@ -5,6 +5,7 @@ module Eval (eval, EvalResult) where
 import Builtins
 import Control.Monad.Except
 import Control.Monad.State
+import Data.List (findIndex)
 import qualified Data.Map as Map
 import qualified Data.Text as T
 import Error
@@ -50,18 +51,31 @@ define name value = do
 getVar :: T.Text -> EvalResult LispVal
 getVar ident = do
   env <- get
-  searchEnv ident env
+  searchEnv env
   where
-    searchEnv :: T.Text -> [Env] -> EvalResult LispVal
-    searchEnv ident' (current : rest) = case Map.lookup ident' current of
+    searchEnv :: [Env] -> EvalResult LispVal
+    searchEnv (current : rest) = case Map.lookup ident current of
       Just n -> return n
       Nothing ->
         if null rest
           then throwError $ UnboundVar ident
-          else searchEnv ident' rest
-    searchEnv _ [] = error "unreachable: global environment should always exist"
+          else searchEnv rest
+    searchEnv [] = error "unreachable: global environment should always exist"
 
--- TODO: would be better to do with ReaderT and local for automatic scoping
+setVar :: [LispVal] -> EvalResult LispVal
+setVar [Atom ident, expr] = do
+  val <- evalExpr expr
+  env <- get
+  pos <- case findIndex (Map.member ident) env of
+    Just n -> return n
+    Nothing -> throwError $ UnboundVar ident
+  modify $ updateEnvAtPos val pos
+  return Undefined
+  where
+    -- NOTE: this pattern match does not fail because if pos is 0 then snd contains elems and cannot be empty
+    updateEnvAtPos val pos env = let (x, xs : ys) = splitAt pos env in x ++ Map.insert ident val xs : ys
+setVar args = throwError $ ArgError 2 (length args)
+
 enter :: EvalResult ()
 enter =
   modify ((Map.empty :: Map.Map T.Text LispVal) :)
@@ -84,8 +98,9 @@ evalExpr (List [Atom "if", cond, then_expr]) = ifExpr cond then_expr Undefined
 evalExpr (List (Atom "if" : args)) = throwError $ ArgError 2 (length args)
 evalExpr (List [Atom "define", Atom name, expr]) = define name expr
 evalExpr (List (Atom "define" : List (Atom name : args) : body)) = lambda args body >>= define name
-evalExpr (List (Atom "lambda" : List args : body)) = lambda args body
 evalExpr (List (Atom "define" : _)) = throwError $ BasicError "define expects identifier or function definition"
+evalExpr (List (Atom "lambda" : List args : body)) = lambda args body
+evalExpr (List (Atom "set!" : args)) = setVar args
 evalExpr (Atom ident) = getVar ident
 evalExpr (List (first : rest)) = applyOp first rest
 evalExpr (DottedList _ _) = throwError $ BasicError "cannot evaluate improper list"
