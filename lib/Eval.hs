@@ -1,14 +1,16 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Eval (eval, EvalResult) where
+module Eval (run, EvalResult) where
 
 import Builtins
 import Control.Monad.Except
 import Control.Monad.State
+import Control.Monad.Trans.Except
 import Data.List (findIndex)
 import qualified Data.Map as Map
 import qualified Data.Text as T
 import Error
+import Parser
 import Types
 
 applyOp :: LispVal -> [LispVal] -> EvalResult LispVal
@@ -107,9 +109,10 @@ evalExpr (List (first : rest)) = applyOp first rest
 evalExpr (DottedList _ _) = throwError $ BasicError "cannot evaluate improper list"
 evalExpr expr = return expr
 
-eval :: [LispVal] -> IO (Either SchemeError LispVal)
+eval :: [LispVal] -> ExceptT SchemeError IO LispVal
 eval exprs = do
-  result <- runExceptT $ evalStateT (mapM evalExpr exprs) builtinEnv
-  return $ case result of
-    Left err -> Left $ Eval err
-    Right vals -> Right $ last vals
+  result <- withExceptT Eval $ evalStateT (mapM evalExpr exprs) builtinEnv
+  return $ last result
+
+run :: String -> IO (Either SchemeError LispVal)
+run input = runExceptT (except (readExprs (T.pack input)) >>= eval)

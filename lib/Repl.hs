@@ -1,10 +1,8 @@
-module Repl (runRepl, runScheme) where
+module Repl (runRepl) where
 
 import Control.Monad.Except
-import qualified Data.Text as T (pack)
 import Error
 import Eval
-import Parser
 import System.Console.Haskeline
   ( InputT,
     defaultSettings,
@@ -22,14 +20,11 @@ repl = do
   case minput of
     Nothing -> outputStrLn "Goodbye."
     Just ":quit" -> outputStrLn "Goodbye."
-    Just input -> liftIO (runScheme input >>= putStrLn) >> repl
+    Just input -> liftIO (runLine input >>= putStrLn) >> repl
 
--- FIXME: what is this abomination
-runScheme :: String -> IO String
-runScheme input = case readExprs (T.pack input) of
-  Left err -> return $ formatError err input
-  Right exprs -> do
-    result <- eval exprs
-    return $ case result of
-      Left err -> formatError err input
-      Right val -> show val
+runLine :: String -> IO String
+runLine input = do
+  result <- run input
+  return $ case result of
+    Left err -> formatError err input
+    Right val -> show val

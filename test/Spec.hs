@@ -180,7 +180,8 @@ testFixtures =
 assertFile :: (HasCallStack) => String -> LispVal -> Expectation
 assertFile file expected = do
   contents <- liftIO $ readFile ("fixtures/" ++ file)
-  (readExprs (pack contents) >>= eval) `shouldBe` Right expected
+  actual <- run contents
+  actual `shouldBe` Right expected
 
 assertParse :: (HasCallStack) => Text -> [LispVal] -> Expectation
 assertParse exprs expected =
@@ -190,13 +191,15 @@ assertParseErr :: (HasCallStack) => Text -> Expectation
 assertParseErr expr =
   readExprs expr `shouldSatisfyWithMessage` isLeft
 
-assertEval :: (HasCallStack) => Text -> LispVal -> Expectation
-assertEval expr expected =
-  (readExprs expr >>= eval) `shouldBe` Right expected
+assertEval :: (HasCallStack) => String -> LispVal -> Expectation
+assertEval expr expected = do
+  actual <- run expr
+  actual `shouldBe` Right expected
 
-assertEvalErr :: (HasCallStack) => Text -> Expectation
-assertEvalErr expr =
-  (readExprs expr >>= eval) `shouldSatisfyWithMessage` isLeft
+assertEvalErr :: (HasCallStack) => String -> Expectation
+assertEvalErr expr = do
+  actual <- run expr
+  actual `shouldSatisfyWithMessage` isLeft
 
 shouldSatisfyWithMessage :: (Show a) => a -> (a -> Bool) -> Expectation
 shouldSatisfyWithMessage actual predicate =
