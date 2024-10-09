@@ -1,5 +1,6 @@
 module Repl (runRepl) where
 
+import Builtins (builtinEnv)
 import Control.Monad.Except
 import Error
 import Eval
@@ -10,21 +11,27 @@ import System.Console.Haskeline
     outputStrLn,
     runInputT,
   )
+import Types (Env)
 
 runRepl :: IO ()
-runRepl = runInputT defaultSettings repl
+runRepl = runInputT defaultSettings $ repl builtinEnv
 
-repl :: InputT IO ()
-repl = do
+repl :: [Env] -> InputT IO ()
+repl env = do
   minput <- getInputLine "Repl> "
   case minput of
     Nothing -> outputStrLn "Goodbye."
     Just ":quit" -> outputStrLn "Goodbye."
-    Just input -> liftIO (runLine input >>= putStrLn) >> repl
+    Just input -> do
+      (val, env') <- liftIO $ runLine input env
+      liftIO $ putStrLn val
+      return repl val env'
 
-runLine :: String -> IO String
-runLine input = do
-  result <- run input
+-- liftIO ( >>= putStrLn) >> repl env
+
+runLine :: String -> [Env] -> IO (String, [Env])
+runLine input env = do
+  result <- runWithEnv input env
   return $ case result of
-    Left err -> formatError err input
-    Right val -> show val
+    Left err -> (formatError err input, env)
+    Right (val, env') -> (show val, env')

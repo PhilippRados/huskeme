@@ -1,0 +1,5 @@
+(define fd (open-output-file "testfile"))
+(define fd2 (open-output-file "testfile"))
+(write "wazzp" fd2)
+(close-output-port fd)
+(close-output-port fd2)

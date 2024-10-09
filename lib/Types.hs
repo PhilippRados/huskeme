@@ -9,6 +9,8 @@ import System.IO (Handle)
 
 type Env = Map.Map T.Text LispVal
 
+-- NOTE: I know this is supposed to be an anti-pattern, but I prefer my errors to be explicit
+-- but I don't like that this makes basically every function impure, I would like to separate out the IO more
 type EvalResult a = StateT [Env] (ExceptT EvalError IO) a
 
 data LispVal
