@@ -22,7 +22,7 @@ applyOp first rest = do
         then throwError $ ArgError (length params) (length args)
         else do
           enter
-          _ <- zipWithM define params args
+          zipWithM_ define params args
           result <- evalBody
           exit
           return $ last result
@@ -39,14 +39,15 @@ ifExpr cond then_expr else_expr = do
     _ -> evalExpr then_expr
 
 define :: T.Text -> LispVal -> EvalResult LispVal
-define name value = do
-  modify addToLastEnv
+define name expr = do
+  value <- evalExpr expr
+  modify (addToLastEnv value)
   return Undefined
   where
-    addToLastEnv (current : rest) =
+    addToLastEnv value (current : rest) =
       let new_current = Map.insert name value current
        in new_current : rest
-    addToLastEnv [] = error "unreachable: global environment should always exist"
+    addToLastEnv _ [] = error "unreachable: global environment should always exist"
 
 getVar :: T.Text -> EvalResult LispVal
 getVar ident = do
@@ -106,7 +107,9 @@ evalExpr (List (first : rest)) = applyOp first rest
 evalExpr (DottedList _ _) = throwError $ BasicError "cannot evaluate improper list"
 evalExpr expr = return expr
 
-eval :: [LispVal] -> Either SchemeError LispVal
-eval exprs = case runExcept $ evalStateT (mapM evalExpr exprs) builtinEnv of
-  Left err -> Left $ Eval err
-  Right val -> return $ last val
+eval :: [LispVal] -> IO (Either SchemeError LispVal)
+eval exprs = do
+  result <- runExceptT $ evalStateT (mapM evalExpr exprs) builtinEnv
+  return $ case result of
+    Left err -> Left $ Eval err
+    Right vals -> Right $ last vals

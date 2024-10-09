@@ -175,7 +175,7 @@ testFixtures =
       assertFile "lambda.scm" (Number 123)
 
     it "scoped assignment" $ do
-      assertFile "assign.scm" (Number 5)
+      assertFile "assign.scm" (Number 7)
 
 assertFile :: (HasCallStack) => String -> LispVal -> Expectation
 assertFile file expected = do

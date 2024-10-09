@@ -22,9 +22,14 @@ repl = do
   case minput of
     Nothing -> outputStrLn "Goodbye."
     Just ":quit" -> outputStrLn "Goodbye."
-    Just input -> liftIO (putStrLn $ runScheme input) >> repl
+    Just input -> liftIO (runScheme input >>= putStrLn) >> repl
 
-runScheme :: String -> String
-runScheme input = case readExprs (T.pack input) >>= eval of
-  Left err -> formatError err input
-  Right val -> show val
+-- FIXME: what is this abomination
+runScheme :: String -> IO String
+runScheme input = case readExprs (T.pack input) of
+  Left err -> return $ formatError err input
+  Right exprs -> do
+    result <- eval exprs
+    return $ case result of
+      Left err -> formatError err input
+      Right val -> show val

@@ -7,6 +7,7 @@ import Data.List (find)
 import qualified Data.Map as Map
 import qualified Data.Text as T
 import Error
+import System.IO
 import Types
 
 unpackNum :: LispVal -> EvalResult Integer
@@ -97,6 +98,24 @@ orOp args = return $ case find (/= Bool False) args of
   Just truthy -> truthy
   Nothing -> last args
 
+makePort :: IOMode -> [LispVal] -> EvalResult LispVal
+makePort mode [String filename] = fmap Port $ liftIO $ openFile (T.unpack filename) mode
+makePort _ _ = throwError $ TypeError "string"
+
+closePort :: [LispVal] -> EvalResult LispVal
+closePort [Port port] = liftIO $ hClose port >> return Undefined
+closePort _ = throwError $ TypeError "port"
+
+-- readProc :: [LispVal] -> EvalResult LispVal
+-- readProc [] = readProc [Port stdin]
+-- readProc [Port port] = (liftIO $ hGetLine port) >>= liftThrows . readExpr
+-- readProc args = throwError $ ArgError 1 (length args)
+
+writeProc :: [LispVal] -> EvalResult LispVal
+writeProc [obj] = writeProc [obj, Port stdout]
+writeProc [obj, Port port] = liftIO $ hPrint port obj >> return Undefined
+writeProc args = throwError $ ArgError 2 (length args)
+
 builtinEnv :: [Map.Map T.Text LispVal]
 builtinEnv = [Map.fromList $ map toFunc builtins]
   where
@@ -131,5 +150,12 @@ builtins =
     ("eqv?", eqv),
     ("equal?", equal),
     ("and", andOp),
-    ("or", orOp)
+    ("or", orOp),
+    -- very basic io functionalities
+    ("open-input-file", makePort ReadMode),
+    ("open-output-file", makePort WriteMode),
+    ("close-input-port", closePort),
+    ("close-output-port", closePort),
+    -- ("read", readProc),
+    ("write", writeProc)
   ]

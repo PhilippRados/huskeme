@@ -5,10 +5,11 @@ import Control.Monad.State
 import qualified Data.Map as Map
 import qualified Data.Text as T
 import Error (EvalError)
+import System.IO (Handle)
 
 type Env = Map.Map T.Text LispVal
 
-type EvalResult a = StateT [Env] (Except EvalError) a
+type EvalResult a = StateT [Env] (ExceptT EvalError IO) a
 
 data LispVal
   = Atom T.Text
@@ -24,6 +25,7 @@ data LispVal
       { lambdaParams :: [T.Text],
         lambdaBody :: [LispVal]
       }
+  | Port Handle
   | Undefined
   deriving (Eq)
 
@@ -38,8 +40,11 @@ instance Show LispVal where
   show (Number num) = show num
   show (Bool True) = "#t"
   show (Bool False) = "#f"
-  show (List contents) = "(" ++ Prelude.unwords (show <$> contents) ++ ")"
-  show (DottedList contents last_) = "(" ++ Prelude.unwords (show <$> contents) ++ " . " ++ show last_ ++ ")"
+  show (List contents) = "(" ++ unwords (show <$> contents) ++ ")"
+  show (DottedList contents last_) = "(" ++ unwords (show <$> contents) ++ " . " ++ show last_ ++ ")"
   show (Func _) = "<builtin-function>"
   show (Lambda {lambdaParams = args, lambdaBody = _}) = "<lambda (" ++ unwords (map show args) ++ ")>"
   show Undefined = "<undefined>"
+  show (Port h) =
+    let portname = takeWhile (/= '}') $ dropWhile (/= ' ') $ show h
+     in "<port:" ++ portname ++ ">"

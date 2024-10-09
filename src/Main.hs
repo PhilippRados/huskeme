@@ -9,5 +9,5 @@ main = do
   args <- getArgs
   case args of
     [] -> void runRepl
-    [file] -> readFile file >>= putStrLn . runScheme
+    [file] -> readFile file >>= runScheme >>= putStrLn
     _ -> putStrLn "usage: lispeln [<file>]"
