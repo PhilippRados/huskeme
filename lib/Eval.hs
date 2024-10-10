@@ -116,9 +116,9 @@ evalWithEnv exprs = do
   modify $ const env'
   return $ last vals
 
-runWithEnv :: String -> StateT [Env] (ExceptT SchemeError IO) LispVal
-runWithEnv input = do
-  exprs <- lift $ except (readExprs (T.pack input))
+runWithEnv :: String -> String -> StateT [Env] (ExceptT SchemeError IO) LispVal
+runWithEnv input filename = do
+  exprs <- lift $ except (readExprs input filename)
   evalWithEnv exprs
 
 eval :: [LispVal] -> ExceptT SchemeError IO LispVal
@@ -126,5 +126,5 @@ eval exprs = do
   result <- withExceptT Eval $ evalStateT (mapM evalExpr exprs) builtinEnv
   return $ last result
 
-run :: String -> IO (Either SchemeError LispVal)
-run input = runExceptT (except (readExprs (T.pack input)) >>= eval)
+run :: String -> String -> IO (Either SchemeError LispVal)
+run input filename = runExceptT (except (readExprs input filename) >>= eval)

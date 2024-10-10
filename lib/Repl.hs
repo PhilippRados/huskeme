@@ -18,9 +18,9 @@ type Repl a = HaskelineT (StateT [Env] IO) a
 cmd :: String -> Repl ()
 cmd input = do
   env <- get
-  result <- liftIO $ runExceptT $ runStateT (runWithEnv input) env
+  result <- liftIO $ runExceptT $ runStateT (runWithEnv input "<stdin>") env
   case result of
-    Left err -> liftIO $ putStrLn $ formatError err input
+    Left err -> liftIO $ formatError err input "<stdin>"
     Right (val, env') -> do
       lift $ modify $ const env'
       liftIO $ print val

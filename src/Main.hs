@@ -9,5 +9,5 @@ main = do
   args <- getArgs
   case args of
     [] -> void runRepl
-    [file] -> readFile file >>= runScheme
+    [file] -> readFile file >>= \input -> runScheme input file
     _ -> putStrLn "usage: huskeme [<file>]"

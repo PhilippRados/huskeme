@@ -13,6 +13,11 @@ type Env = Map.Map T.Text LispVal
 -- but I don't like that this makes basically every function impure, I would like to separate out the IO more
 type EvalResult a = StateT [Env] (ExceptT EvalError IO) a
 
+-- data LispValLoc = LispValLoc
+--   { kind :: LispVal,
+--     loc :: Location
+--   }
+
 data LispVal
   = Atom T.Text
   | -- proper list that terminates with empty list: (1 . (2 . (3 . ()))) => (1 2 3)
@@ -30,6 +35,8 @@ data LispVal
   | Port Handle
   | Undefined
   deriving (Eq)
+
+-- data Location
 
 newtype InternalFn = InternalFn {fn :: [LispVal] -> EvalResult LispVal}
 

@@ -54,6 +54,9 @@ extra-doc-files:    CHANGELOG.md
 common warnings
     ghc-options: -Wall
 
+package diagnose
+    flags: +parsec-compat
+
 library
     import:          warnings
     exposed-modules:
@@ -68,12 +71,13 @@ library
     hs-source-dirs:  lib/
     build-depends: base ^>=4.17.2.1
       , text
-      , parsec
+      , parsec >= 3.1.14.0
       , containers
       , mtl
       , haskeline
       , repline
       , transformers
+      , diagnose
 
 executable huskeme
     import:           warnings

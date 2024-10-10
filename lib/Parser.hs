@@ -77,7 +77,7 @@ parseExpr = parseString <|> parseBool <|> parseAtom <|> parseNumber <|> parseLis
 parseAll :: Parser [LispVal]
 parseAll = many (skipMany space *> parseExpr <* skipMany space) <* eof
 
-readExprs :: T.Text -> Either SchemeError [LispVal]
-readExprs input = case parse parseAll "<stdin>" (T.unpack input) of
+readExprs :: String -> String -> Either SchemeError [LispVal]
+readExprs input filename = case parse parseAll filename input of
   Left err -> Left $ Parse err
   Right val -> return val

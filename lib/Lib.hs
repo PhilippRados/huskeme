@@ -4,9 +4,9 @@ import Error
 import Eval
 import Repl
 
-runScheme :: String -> IO ()
-runScheme input = do
-  result <- run input
+runScheme :: String -> String -> IO ()
+runScheme input filename = do
+  result <- run input filename
   case result of
-    Left err -> putStrLn $ formatError err input
+    Left err -> formatError err input filename
     Right _ -> return ()
