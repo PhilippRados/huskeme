@@ -109,18 +109,22 @@ evalExpr (List (first : rest)) = applyOp first rest
 evalExpr (DottedList _ _) = throwError $ BasicError "cannot evaluate improper list"
 evalExpr expr = return expr
 
+evalWithEnv :: [LispVal] -> StateT [Env] (ExceptT SchemeError IO) LispVal
+evalWithEnv exprs = do
+  env <- get
+  (vals, env') <- lift (withExceptT Eval $ runStateT (mapM evalExpr exprs) env)
+  modify $ const env'
+  return $ last vals
+
+runWithEnv :: String -> StateT [Env] (ExceptT SchemeError IO) LispVal
+runWithEnv input = do
+  exprs <- lift $ except (readExprs (T.pack input))
+  evalWithEnv exprs
+
 eval :: [LispVal] -> ExceptT SchemeError IO LispVal
 eval exprs = do
   result <- withExceptT Eval $ evalStateT (mapM evalExpr exprs) builtinEnv
   return $ last result
-
-evalWithEnv :: [LispVal] -> [Env] -> ExceptT SchemeError IO (LispVal, [Env])
-evalWithEnv exprs env = do
-  (vals, env') <- withExceptT Eval $ runStateT (mapM evalExpr exprs) env
-  return (last vals, env')
-
-runWithEnv :: String -> [Env] -> IO (Either SchemeError (LispVal, [Env]))
-runWithEnv input env = runExceptT (except (readExprs (T.pack input)) >>= \exprs -> evalWithEnv exprs env)
 
 run :: String -> IO (Either SchemeError LispVal)
 run input = runExceptT (except (readExprs (T.pack input)) >>= eval)

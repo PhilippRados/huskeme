@@ -8,5 +8,5 @@ runScheme :: String -> IO ()
 runScheme input = do
   result <- run input
   case result of
-    Left err -> print $ formatError err input
+    Left err -> putStrLn $ formatError err input
     Right _ -> return ()
