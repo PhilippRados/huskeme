@@ -1,4 +1,4 @@
-# Revision history for lispeln
+# Revision history for huskeme
 
 ## 0.1.0.0 -- YYYY-mm-dd
 

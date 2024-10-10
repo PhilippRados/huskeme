@@ -57,7 +57,7 @@ opts =
 
 ini :: Repl ()
 ini =
-  liftIO $ putStrLn $ unlines ["lispeln 0.1.0.0", "MIT License", "Philipp Rados", "Type :help for help, <Ctrl-D> to quit"]
+  liftIO $ putStrLn $ unlines ["huskeme 0.1.0.0", "MIT License", "Philipp Rados", "Type :help for help, <Ctrl-D> to quit"]
 
 final :: Repl ExitDecision
 final = do

@@ -10,4 +10,4 @@ main = do
   case args of
     [] -> void runRepl
     [file] -> readFile file >>= runScheme
-    _ -> putStrLn "usage: lispeln [<file>]"
+    _ -> putStrLn "usage: huskeme [<file>]"
