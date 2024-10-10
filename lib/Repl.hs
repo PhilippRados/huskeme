@@ -8,16 +8,9 @@ import Control.Monad.State
 import Data.List
 import qualified Data.Map as Map
 import qualified Data.Text as T
-import Data.Version (showVersion)
-import Distribution.PackageDescription (GenericPackageDescription, PackageDescription (..), PackageIdentifier (..), package, packageDescription)
-import Distribution.Simple.PackageDescription
-import Distribution.Types.PackageDescription
-import Distribution.Types.PackageName (unPackageName)
-import Distribution.Verbosity (normal)
 import Error
 import Eval
 import System.Console.Repline
-import Text.Show.Pretty
 import Types (Env)
 
 type Repl a = HaskelineT (StateT [Env] IO) a
@@ -63,20 +56,8 @@ opts =
   ]
 
 ini :: Repl ()
-ini = do
-  (name, version, plicense, pauthor) <- liftIO $ getPackageInfo "lispeln.cabal"
-  liftIO $ putStrLn $ unlines [name ++ version, plicense, pauthor, "Type :help for help, <Ctrl-D> to quit"]
-
-getPackageInfo :: FilePath -> IO (String, String, String, String)
-getPackageInfo cabalFile = do
-  gpd <- readGenericPackageDescription normal cabalFile
-  let pd = packageDescription gpd
-      PackageIdentifier {pkgName = pkgName, pkgVersion = pkgVersion} = package pd
-      name = unPackageName pkgName
-      version = prettyShow pkgVersion
-      pAuthor = show $ author pd
-      plicense = license pd
-  return (name, version, plicense, pAuthor)
+ini =
+  liftIO $ putStrLn $ unlines ["lispeln 0.1.0.0", "MIT License", "Philipp Rados", "Type :help for help, <Ctrl-D> to quit"]
 
 final :: Repl ExitDecision
 final = do

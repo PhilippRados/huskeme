@@ -74,9 +74,6 @@ library
       , haskeline
       , repline
       , transformers
-      , Cabal-syntax
-      , Cabal
-      , pretty-show
 
 executable lispeln
     import:           warnings
