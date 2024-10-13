@@ -4,12 +4,15 @@ import Control.Exception.Base
 import Control.Monad.IO.Class (liftIO)
 import Data.Either
 import Data.Text (Text, pack)
-import Error
 import Eval
 import Parser
 import Repl
 import Test.Hspec
-import Types
+import Text.Parsec.Pos (SourcePos, newPos)
+import Utils
+
+mockPos :: SourcePos
+mockPos = newPos "testfile" 1 1
 
 main :: IO ()
 main = hspec $ do
@@ -28,133 +31,133 @@ testParse =
       assertParse "\"\"" [String ""]
 
     it "parses atoms" $ do
-      assertParse "abc" [Atom "abc"]
-      assertParse "a1bc" [Atom "a1bc"]
+      assertParse "abc" [Atom "abc" mockPos]
+      assertParse "a1bc" [Atom "a1bc" mockPos]
       assertParseErr "(1abc)"
 
     it "parses nums" $ do
-      assertParse "1 abc" [Number 1, Atom "abc"]
+      assertParse "1 abc" [Number 1, Atom "abc" mockPos]
 
     it "parses lists" $ do
-      assertParse "(+ 2 3)" [List [Atom "+", Number 2, Number 3]]
-      assertParse "(+ (- 2 10) 3)" [List [Atom "+", List [Atom "-", Number 2, Number 10], Number 3]]
+      assertParse "(+ 2 3)" [List [Atom "+" mockPos, Number 2, Number 3] mockPos]
+      assertParse "(+ (- 2 10) 3)" [List [Atom "+" mockPos, List [Atom "-" mockPos, Number 2, Number 10] mockPos, Number 3] mockPos]
 
     it "parses dotted-lists" $ do
-      assertParse "(1 .  (2 . 3))" [DottedList [Number 1, Number 2] (Number 3)]
+      assertParse "(1 .  (2 . 3))" [DottedList [Number 1, Number 2] (Number 3) mockPos]
 
     it "parses quote" $ do
-      assertParse "'(1 2 3)" [List [Atom "quote", List [Number 1, Number 2, Number 3]]]
-      assertParse "'(+ 1 2)" [List [Atom "quote", List [Atom "+", Number 1, Number 2]]]
-      assertParse "(quote (+ 1 2))" [List [Atom "quote", List [Atom "+", Number 1, Number 2]]]
+      assertParse "'(1 2 3)" [List [Atom "quote" mockPos, List [Number 1, Number 2, Number 3] mockPos] mockPos]
+      assertParse "'(+ 1 2)" [List [Atom "quote" mockPos, List [Atom "+" mockPos, Number 1, Number 2] mockPos] mockPos]
+      assertParse "(quote (+ 1 2))" [List [Atom "quote" mockPos, List [Atom "+" mockPos, Number 1, Number 2] mockPos] mockPos]
 
 testEval =
   describe "evalExpr" $ do
     it "simple math" $ do
-      assertEval "(+ 2 3)" (Number 5)
-      assertEval "(+ 2 3 9)" (Number 14)
-      assertEval "(- 2 3 1)" (Number (-2))
+      assertEval "(+ 2 3)" "5"
+      assertEval "(+ 2 3 9)" "14"
+      assertEval "(- 2 3 1)" "-2"
 
     it "nested math" $ do
-      assertEval "(+ (* 2 2) 3)" (Number 7)
-      assertEval "(* (+ 2 (* 4 6)) (+ 3 5 7))" (Number 390)
+      assertEval "(+ (* 2 2) 3)" "7"
+      assertEval "(* (+ 2 (* 4 6)) (+ 3 5 7))" "390"
 
     it "num comp" $ do
-      assertEval "(= 1 1)" (Bool True)
-      assertEval "(= 1 1 1)" (Bool True)
-      assertEval "(= 1 1 2)" (Bool False)
+      assertEval "(= 1 1)" "#t"
+      assertEval "(= 1 1 1)" "#t"
+      assertEval "(= 1 1 2)" "#f"
       assertEvalErr "(= \"1\" \"1\")"
-      assertEval "(<= 1 1 2)" (Bool True)
-      assertEval "(<= 1 0 2)" (Bool False)
-      assertEval "(< 1 2 3)" (Bool True)
-      assertEval "(< 1 5 4)" (Bool False)
+      assertEval "(<= 1 1 2)" "#t"
+      assertEval "(<= 1 0 2)" "#f"
+      assertEval "(< 1 2 3)" "#t"
+      assertEval "(< 1 5 4)" "#f"
 
     it "str comp" $ do
-      assertEval "(string=? \"foo\" \"foo\")" (Bool True)
-      assertEval "(string=? \"foo\" \"bar\")" (Bool False)
-      assertEval "(string=? \"foo\" \"foo\" \"bar\")" (Bool False)
-      assertEval "(string<? \"abc\" \"bba\")" (Bool True)
-      assertEval "(string<? \"abc\" \"aba\")" (Bool False)
-      assertEval "(string<=? \"abc\" \"abc\")" (Bool True)
+      assertEval "(string=? \"foo\" \"foo\")" "#t"
+      assertEval "(string=? \"foo\" \"bar\")" "#f"
+      assertEval "(string=? \"foo\" \"foo\" \"bar\")" "#f"
+      assertEval "(string<? \"abc\" \"bba\")" "#t"
+      assertEval "(string<? \"abc\" \"aba\")" "#f"
+      assertEval "(string<=? \"abc\" \"abc\")" "#t"
       assertEvalErr "(string=? 1 2 3)"
 
     it "if cond" $ do
-      assertEval "(if #t 1 2)" (Number 1)
-      assertEval "(if #f 1 2)" (Number 2)
-      assertEval "(if \"foo\" 1 2)" (Number 1)
-      assertEval "(if #t 1)" (Number 1)
-      assertEval "(if #f 1)" Undefined
-      assertEval "((if #f - *) 3 4)" (Number 12)
+      assertEval "(if #t 1 2)" "1"
+      assertEval "(if #f 1 2)" "2"
+      assertEval "(if \"foo\" 1 2)" "1"
+      assertEval "(if #t 1)" "1"
+      assertEval "(if #f 1)" "<undefined>"
+      assertEval "((if #f - *) 3 4)" "12"
 
     it "car operator" $ do
-      assertEval "(car '(a b c))" (Atom "a")
-      assertEval "(car '((a) b c d))" (List [Atom "a"])
-      assertEval "(car '(1 . 2))" (Number 1)
+      assertEval "(car '(a b c))" "a"
+      assertEval "(car '((a) b c d))" "(a)"
+      assertEval "(car '(1 . 2))" "1"
       assertEvalErr "(car '())"
 
     it "cdr operator" $ do
-      assertEval "(cdr '((a) b c d))" (List [Atom "b", Atom "c", Atom "d"])
-      assertEval "(cdr '(1 . 2))" (Number 2)
-      assertEval "(cdr '(1))" (List [])
+      assertEval "(cdr '((a) b c d))" "(b c d)"
+      assertEval "(cdr '(1 . 2))" "2"
+      assertEval "(cdr '(1))" "()"
       assertEvalErr "(cdr '())"
 
     it "cons operator" $ do
-      assertEval "(cons 'a '())" (List [Atom "a"])
-      assertEval "(cons '() '())" (List [List []])
-      assertEval "(cons '(a) '(b c d))" (List [List [Atom "a"], Atom "b", Atom "c", Atom "d"])
-      assertEval "(cons \"a\" '(b c))" (List [String "a", Atom "b", Atom "c"])
-      assertEval "(cons 'a 3)" (DottedList [Atom "a"] (Number 3))
-      assertEval "(cons '(a b) 'c)" (DottedList [List [Atom "a", Atom "b"]] (Atom "c"))
-      assertEval "(cons 1 '(2 . ()))" (List [Number 1, Number 2])
+      assertEval "(cons 'a '())" "(a)"
+      assertEval "(cons '() '())" "(())"
+      assertEval "(cons '(a) '(b c d))" "((a) b c d)"
+      assertEval "(cons \"a\" '(b c))" "(\"a\" b c)"
+      assertEval "(cons 'a 3)" "(a . 3)"
+      assertEval "(cons '(a b) 'c)" "((a b) . c)"
+      assertEval "(cons 1 '(2 . ()))" "(1 2)"
 
     it "dot operations" $ do
-      assertEval "(+ . (5 6))" (Number 11)
-      assertEval "'(+ . (5 6))" (List [Atom "+", Number 5, Number 6])
-      assertEval "'(+ . (5 . (6 . ())))" (List [Atom "+", Number 5, Number 6])
-      assertEval "'(+ . (5 . 6))" (DottedList [Atom "+", Number 5] (Number 6))
-      assertEval "'(+ 1 2 . (5 . (6 7 . ())))" (List [Atom "+", Number 1, Number 2, Number 5, Number 6, Number 7])
-      assertEval "(+ 1 . (5 6))" (Number 12)
+      assertEval "(+ . (5 6))" "11"
+      assertEval "'(+ . (5 6))" "(+ 5 6)"
+      assertEval "'(+ . (5 . (6 . ())))" "(+ 5 6)"
+      assertEval "'(+ . (5 . 6))" "(+ 5 . 6)"
+      assertEval "'(+ 1 2 . (5 . (6 7 . ())))" "(+ 1 2 5 6 7)"
+      assertEval "(+ 1 . (5 6))" "12"
       assertEvalErr "(+ . (5 . 6))"
       assertEvalErr "(cons + (5 6))"
       assertEvalErr "((+ 1 1) . (3))"
       assertEvalErr "(cons + (3))"
 
     it "equality operations" $ do
-      assertEval "(eqv? 'a 'a)" (Bool True)
-      assertEval "(eqv? 'a 'b)" (Bool False)
-      assertEval "(eqv? 2 2)" (Bool True)
-      assertEval "(eqv? '() '())" (Bool True)
-      assertEval "(eqv? 100000000 100000000)" (Bool True)
-      assertEval "(eqv? (cons 1 2) (cons 1 2))" (Bool False)
-      assertEval "(eqv? '('a 'b) '('a 'b))" (Bool False)
-      assertEval "(eqv? \"abc\" \"abc\")" (Bool True)
+      assertEval "(eqv? 'a 'a)" "#t"
+      assertEval "(eqv? 'a 'b)" "#f"
+      assertEval "(eqv? 2 2)" "#t"
+      assertEval "(eqv? '() '())" "#t"
+      assertEval "(eqv? 100000000 100000000)" "#t"
+      assertEval "(eqv? (cons 1 2) (cons 1 2))" "#f"
+      assertEval "(eqv? '('a 'b) '('a 'b))" "#f"
+      assertEval "(eqv? \"abc\" \"abc\")" "#t"
 
-      assertEval "(equal? '('a 'b) '('a 'b))" (Bool True)
-      assertEval "(equal? (cons 1 2) (cons 1 2))" (Bool True)
-      assertEval "(equal? 'a 'a)" (Bool True)
-      assertEval "(equal? '(a) '(a))" (Bool True)
-      assertEval "(equal? '(a (b) c) '(a (b) c))" (Bool True)
-      assertEval "(equal? \"abc\" \"abc\")" (Bool True)
-      assertEval "(equal? 2 2)" (Bool True)
-      assertEval "(equal? 1 \"1\")" (Bool False)
+      assertEval "(equal? '('a 'b) '('a 'b))" "#t"
+      assertEval "(equal? (cons 1 2) (cons 1 2))" "#t"
+      assertEval "(equal? 'a 'a)" "#t"
+      assertEval "(equal? '(a) '(a))" "#t"
+      assertEval "(equal? '(a (b) c) '(a (b) c))" "#t"
+      assertEval "(equal? \"abc\" \"abc\")" "#t"
+      assertEval "(equal? 2 2)" "#t"
+      assertEval "(equal? 1 \"1\")" "#f"
 
     it "logical operations" $ do
-      assertEval "(and 1 2)" (Number 2)
-      assertEval "(and #f 2)" (Bool False)
-      assertEval "(and #t 6)" (Number 6)
-      assertEval "(and (= 2 2) (> 2 1))" (Bool True)
-      assertEval "(and (= 2 2) (< 2 1))" (Bool False)
-      assertEval "(and 1 2 'c '(f g))" (List [Atom "f", Atom "g"])
-      assertEval "(and)" (Bool True)
+      assertEval "(and 1 2)" "2"
+      assertEval "(and #f 2)" "#f"
+      assertEval "(and #t 6)" "6"
+      assertEval "(and (= 2 2) (> 2 1))" "#t"
+      assertEval "(and (= 2 2) (< 2 1))" "#f"
+      assertEval "(and 1 2 'c '(f g))" "(f g)"
+      assertEval "(and)" "#t"
 
-      assertEval "(or 1 2)" (Number 1)
-      assertEval "(or #f #f 0 #f)" (Number 0)
-      assertEval "(or 1 #t)" (Number 1)
-      assertEval "(or (= 2 2) (> 2 1))" (Bool True)
-      assertEval "(or (= 2 2) (< 2 1))" (Bool True)
-      assertEval "(or #f #f #f)" (Bool False)
+      assertEval "(or 1 2)" "1"
+      assertEval "(or #f #f 0 #f)" "0"
+      assertEval "(or 1 #t)" "1"
+      assertEval "(or (= 2 2) (> 2 1))" "#t"
+      assertEval "(or (= 2 2) (< 2 1))" "#t"
+      assertEval "(or #f #f #f)" "#f"
 
     it "set!" $ do
-      assertEval "(define f 5) (set! f 2) f" (Number 2)
+      assertEval "(define f 5) (set! f 2) f" "2"
       assertEvalErr "(set! f 2)"
 
 testFixtures =
@@ -191,10 +194,12 @@ assertParseErr :: (HasCallStack) => String -> Expectation
 assertParseErr expr =
   readExprs expr "file" `shouldSatisfyWithMessage` isLeft
 
-assertEval :: (HasCallStack) => String -> LispVal -> Expectation
+assertEval :: (HasCallStack) => String -> String -> Expectation
 assertEval expr expected = do
   actual <- run expr "file"
-  actual `shouldBe` Right expected
+  case actual of
+    Left _ -> error "eval error"
+    Right actual -> show actual `shouldBe` expected
 
 assertEvalErr :: (HasCallStack) => String -> Expectation
 assertEvalErr expr = do

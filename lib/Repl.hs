@@ -8,10 +8,9 @@ import Control.Monad.State
 import Data.List
 import qualified Data.Map as Map
 import qualified Data.Text as T
-import Error
 import Eval
 import System.Console.Repline
-import Types (Env)
+import Utils (Env, printError)
 
 type Repl a = HaskelineT (StateT [Env] IO) a
 
@@ -20,7 +19,7 @@ cmd input = do
   env <- get
   result <- liftIO $ runExceptT $ runStateT (runWithEnv input "<stdin>") env
   case result of
-    Left err -> liftIO $ formatError err input "<stdin>"
+    Left err -> liftIO $ printError err input "<stdin>"
     Right (val, env') -> do
       lift $ modify $ const env'
       liftIO $ print val

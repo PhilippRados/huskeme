@@ -3,9 +3,12 @@
 module Parser (readExprs) where
 
 import qualified Data.Text as T
-import Error
+import Text.Parsec.Prim (ParsecT)
 import Text.ParserCombinators.Parsec hiding (spaces)
-import Types
+import Utils
+
+sourcePos :: (Monad m) => ParsecT s u m SourcePos
+sourcePos = statePos <$> getParserState
 
 spaces :: Parser ()
 spaces = skipMany1 space
@@ -14,62 +17,73 @@ parseBool :: Parser LispVal
 parseBool = do
   _ <- char '#'
   val <- char 't' <|> char 'f'
-  return $ Bool $ case val of
-    't' -> True
-    'f' -> False
-    _ -> error "unreachable: monad shortcircuits before"
+  let val' =
+        ( case val of
+            't' -> True
+            'f' -> False
+            _ -> error "unreachable: monad shortcircuits before"
+        )
+  return $ Bool val'
 
 parseString :: Parser LispVal
 parseString = do
   _ <- char '"'
   literal <- many $ noneOf "\""
   _ <- char '"'
-  return $ String $ T.pack literal
+  return $ String (T.pack literal)
 
 symbol :: Parser Char
 symbol = oneOf "!#$%&|*+-/:<=>?@^_~"
 
 parseAtom :: Parser LispVal
 parseAtom = do
+  pos <- sourcePos
   x <- letter <|> symbol
   xs <- many $ letter <|> digit <|> symbol
-  return $ Atom $ T.pack $ x : xs
+  return $ Atom (T.pack $ x : xs) pos
 
 parseNumber :: Parser LispVal
 -- same as: liftM (Number . read) $ many1 digit, because liftM <=> fmap, fmap <=> <$>
-parseNumber = Number . read <$> many1 digit
+parseNumber = do
+  n <- many1 digit
+  return $ Number (read n)
 
-parseBasicList :: Parser LispVal
-parseBasicList = List <$> sepBy parseExpr spaces
+parseBasicList :: SourcePos -> Parser LispVal
+parseBasicList pos = do
+  elems <- sepBy parseExpr spaces
+  return $ List elems pos
 
-parseDottedList :: Parser LispVal
-parseDottedList = do
+parseDottedList :: SourcePos -> Parser LispVal
+parseDottedList pos = do
   elems <- endBy parseExpr spaces
   _ <- char '.' >> spaces
-  cons elems <$> parseExpr
+  last' <- parseExpr
+  return $ cons elems last' pos
   where
     -- tries to combine operands into proper list, if not then is improper (dotted)
-    cons :: [LispVal] -> LispVal -> LispVal
-    cons car (List []) = List car
-    cons car (List cdr) = List $ car ++ cdr
-    cons car (DottedList xs last_') = case cons xs last_' of
-      List cdr -> List $ car ++ cdr
-      DottedList xs' last_'' -> DottedList (car ++ xs') last_''
+    cons :: [LispVal] -> LispVal -> SourcePos -> LispVal
+    cons car (List [] _) _ = List car pos
+    cons car (List cdr _) _ = List (car ++ cdr) pos
+    cons car (DottedList xs last_' _) _ = case cons xs last_' pos of
+      List cdr _ -> List (car ++ cdr) pos
+      DottedList xs' last_'' _ -> DottedList (car ++ xs') last_'' pos
       _ -> error "unreachable cons can only return lists"
-    cons car cdr = DottedList car cdr
+    cons car cdr _ = DottedList car cdr pos
 
 parseLists :: Parser LispVal
 parseLists = do
+  pos <- sourcePos
   _ <- char '('
-  l <- try parseBasicList <|> parseDottedList
+  l <- try (parseBasicList pos) <|> parseDottedList pos
   _ <- char ')'
   return l
 
 parseQuote :: Parser LispVal
 parseQuote = do
+  pos <- sourcePos
   _ <- char '\''
   x <- parseExpr
-  return $ List [Atom "quote", x]
+  return $ List [Atom "quote" pos, x] pos
 
 parseExpr :: Parser LispVal
 parseExpr = parseString <|> parseBool <|> parseAtom <|> parseNumber <|> parseLists <|> parseQuote

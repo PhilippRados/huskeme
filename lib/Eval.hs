@@ -9,19 +9,19 @@ import Control.Monad.Trans.Except
 import Data.List (findIndex)
 import qualified Data.Map as Map
 import qualified Data.Text as T
-import Error
 import Parser
-import Types
+import Text.Parsec (SourcePos)
+import Utils
 
-applyOp :: LispVal -> [LispVal] -> EvalResult LispVal
-applyOp first rest = do
+applyOp :: LispVal -> [LispVal] -> SourcePos -> EvalResult LispVal
+applyOp first rest pos = do
   op <- evalExpr first
   args <- mapM evalExpr rest
   case op of
-    Func (InternalFn f) -> f args
+    Func (InternalFn f) -> f args pos
     (Lambda params body) ->
       if length params /= length args
-        then throwError $ ArgError (length params) (length args)
+        then throwError $ ArgError (length params) (length args) pos
         else do
           enter
           zipWithM_ define params args
@@ -30,7 +30,7 @@ applyOp first rest = do
           return $ last result
       where
         evalBody = mapM evalExpr body
-    _ -> throwError $ BasicError "operator must be a function"
+    op -> throwError $ TypeError "function" op pos
 
 ifExpr :: LispVal -> LispVal -> LispVal -> EvalResult LispVal
 ifExpr cond then_expr else_expr = do
@@ -51,8 +51,8 @@ define name expr = do
        in new_current : rest
     addToLastEnv _ [] = error "unreachable: global environment should always exist"
 
-getVar :: T.Text -> EvalResult LispVal
-getVar ident = do
+getVar :: T.Text -> SourcePos -> EvalResult LispVal
+getVar ident pos = do
   env <- get
   searchEnv env
   where
@@ -61,23 +61,23 @@ getVar ident = do
       Just n -> return n
       Nothing ->
         if null rest
-          then throwError $ UnboundVar ident
+          then throwError $ UnboundVar ident pos
           else searchEnv rest
     searchEnv [] = error "unreachable: global environment should always exist"
 
-setVar :: [LispVal] -> EvalResult LispVal
-setVar [Atom ident, expr] = do
+setVar :: [LispVal] -> SourcePos -> EvalResult LispVal
+setVar [Atom ident errPos, expr] _ = do
   val <- evalExpr expr
   env <- get
   pos <- case findIndex (Map.member ident) env of
     Just n -> return n
-    Nothing -> throwError $ UnboundVar ident
+    Nothing -> throwError $ UnboundVar ident errPos
   modify $ updateEnvAtPos val pos
   return Undefined
   where
     -- NOTE: this pattern match does not fail because if pos is 0 then snd contains elems and cannot be empty
     updateEnvAtPos val pos env = let (x, xs : ys) = splitAt pos env in x ++ Map.insert ident val xs : ys
-setVar args = throwError $ ArgError 2 (length args)
+setVar args pos = throwError $ ArgError 2 (length args) pos
 
 enter :: EvalResult ()
 enter =
@@ -87,26 +87,27 @@ exit :: EvalResult ()
 exit =
   modify tail
 
-lambda :: [LispVal] -> [LispVal] -> EvalResult LispVal
-lambda args body = mapM unpackAtom args >>= \params -> return (Lambda params body)
+lambda :: [LispVal] -> [LispVal] -> SourcePos -> EvalResult LispVal
+lambda args body pos = mapM unpackAtom args >>= \params -> return (Lambda params body)
   where
     unpackAtom :: LispVal -> EvalResult T.Text
-    unpackAtom (Atom ident) = return ident
-    unpackAtom _ = throwError $ TypeError "identifier"
+    unpackAtom (Atom ident _) = return ident
+    unpackAtom arg = throwError $ TypeError "identifier" arg pos
 
 evalExpr :: LispVal -> EvalResult LispVal
-evalExpr (List [Atom "quote", expr]) = return expr
-evalExpr (List [Atom "if", cond, then_expr, else_expr]) = ifExpr cond then_expr else_expr
-evalExpr (List [Atom "if", cond, then_expr]) = ifExpr cond then_expr Undefined
-evalExpr (List (Atom "if" : args)) = throwError $ ArgError 2 (length args)
-evalExpr (List [Atom "define", Atom name, expr]) = define name expr
-evalExpr (List (Atom "define" : List (Atom name : args) : body)) = lambda args body >>= define name
-evalExpr (List (Atom "define" : _)) = throwError $ BasicError "define expects identifier or function definition"
-evalExpr (List (Atom "lambda" : List args : body)) = lambda args body
-evalExpr (List (Atom "set!" : args)) = setVar args
-evalExpr (Atom ident) = getVar ident
-evalExpr (List (first : rest)) = applyOp first rest
-evalExpr (DottedList _ _) = throwError $ BasicError "cannot evaluate improper list"
+evalExpr (List [Atom "quote" _, expr] _) = return expr
+evalExpr (List [Atom "if" _, cond, then_expr, else_expr] _) = ifExpr cond then_expr else_expr
+evalExpr (List [Atom "if" _, cond, then_expr] _) = ifExpr cond then_expr Undefined
+evalExpr (List (Atom "if" _ : args) pos) = throwError $ ArgError 2 (length args) pos
+evalExpr (List [Atom "define" _, Atom name _, expr] _) = define name expr
+evalExpr (List (Atom "define" _ : Atom _ _ : args) pos) = throwError $ ArgError 2 (length args + 1) pos
+evalExpr (List (Atom "define" _ : List (Atom name _ : args) _ : body) pos) = lambda args body pos >>= define name
+evalExpr (List (Atom "define" _ : arg : _) pos) = throwError $ TypeError "identifier or function definition" arg pos
+evalExpr (List (Atom "lambda" _ : (List args _) : body) pos) = lambda args body pos
+evalExpr (List (Atom "set!" _ : args) pos) = setVar args pos
+evalExpr (Atom ident pos) = getVar ident pos
+evalExpr (List (first : rest) pos) = applyOp first rest pos
+evalExpr x@(DottedList _ _ pos) = throwError $ TypeError "proper list" x pos
 evalExpr expr = return expr
 
 evalWithEnv :: [LispVal] -> StateT [Env] (ExceptT SchemeError IO) LispVal
