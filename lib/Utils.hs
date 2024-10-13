@@ -93,8 +93,8 @@ printDiag :: Diagnostic String -> IO ()
 printDiag = printDiagnostic stderr WithUnicode (TabSize 4) defaultStyle
 
 errorData :: EvalError -> (String, [(Position, Marker String)])
-errorData (TypeError exp got pos) = ("mismatched types", [(convertPos pos, This ("this call expected an arg of type: " ++ T.unpack exp ++ ", but got: " ++ getKind got))])
-errorData (ArgError exp got pos) = ("mismatched number of arguments", [(convertPos pos, This ("this call expected: " ++ show exp ++ ", but got " ++ show got))])
+errorData (TypeError expected got pos) = ("mismatched types", [(convertPos pos, This ("this call expected an arg of type: " ++ T.unpack expected ++ ", but got: " ++ getKind got))])
+errorData (ArgError expected got pos) = ("mismatched number of arguments", [(convertPos pos, This ("this call expected: " ++ show expected ++ " arg(s), but got " ++ show got))])
 errorData (UnboundVar name pos) = ("unbound variable " ++ T.unpack name, [(convertPos pos, This "is this even defined?")])
 
 getKind :: LispVal -> String

@@ -180,6 +180,9 @@ testFixtures =
     it "scoped assignment" $ do
       assertFile "assign.scm" (Number 7)
 
+    it "ignores comments" $ do
+      assertFile "comments.scm" (Number 3)
+
 assertFile :: (HasCallStack) => String -> LispVal -> Expectation
 assertFile file expected = do
   contents <- liftIO $ readFile ("fixtures/" ++ file)

@@ -10,8 +10,23 @@ import Utils
 sourcePos :: (Monad m) => ParsecT s u m SourcePos
 sourcePos = statePos <$> getParserState
 
+-- r7rs: Comments are treated exactly like whitespace
+comment :: Parser ()
+comment = do
+  _ <- try lineComment <|> try blockComment
+  return ()
+  where
+    lineComment = do
+      _ <- char ';'
+      _ <- manyTill anyChar (try newline)
+      return ()
+    blockComment = do
+      _ <- string "#|"
+      _ <- manyTill anyChar (try (string "|#"))
+      return ()
+
 spaces :: Parser ()
-spaces = skipMany1 space
+spaces = skipMany1 (skipMany1 space <|> comment)
 
 parseBool :: Parser LispVal
 parseBool = do
@@ -89,7 +104,7 @@ parseExpr :: Parser LispVal
 parseExpr = parseString <|> parseBool <|> parseAtom <|> parseNumber <|> parseLists <|> parseQuote
 
 parseAll :: Parser [LispVal]
-parseAll = many (skipMany space *> parseExpr <* skipMany space) <* eof
+parseAll = many (skipMany spaces *> parseExpr <* skipMany spaces) <* eof
 
 readExprs :: String -> String -> Either SchemeError [LispVal]
 readExprs input filename = case parse parseAll filename input of
