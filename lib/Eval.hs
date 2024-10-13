@@ -108,6 +108,7 @@ evalExpr (List (Atom "set!" _ : args) pos) = setVar args pos
 evalExpr (Atom ident pos) = getVar ident pos
 evalExpr (List (first : rest) pos) = applyOp first rest pos
 evalExpr x@(DottedList _ _ pos) = throwError $ TypeError "proper list" x pos
+evalExpr x@(List _ pos) = throwError $ TypeError "non-empty list" x pos
 evalExpr expr = return expr
 
 evalWithEnv :: [LispVal] -> StateT [Env] (ExceptT SchemeError IO) LispVal

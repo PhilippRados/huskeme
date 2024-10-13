@@ -7,3 +7,7 @@
   (- 1 y)))
 
 (f 2 4)
+
+; (define reverse-subtract
+;   (lambda (x y) (- y x)))
+; (write (reverse-subtract 7 10))
