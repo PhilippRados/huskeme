@@ -33,10 +33,14 @@ testParse =
     it "parses atoms" $ do
       assertParse "abc" [Atom "abc" mockPos]
       assertParse "a1bc" [Atom "a1bc" mockPos]
+      assertParse "-1foo" [Atom "-1foo" mockPos]
       assertParseErr "(1abc)"
 
     it "parses nums" $ do
       assertParse "1 abc" [Number 1, Atom "abc" mockPos]
+      assertParse "+1" [Number 1]
+      assertParse "-1" [Number (-1)]
+      assertParse "(- 1 1)" [List [Atom "-" mockPos, Number 1, Number 1] mockPos]
 
     it "parses lists" $ do
       assertParse "(+ 2 3)" [List [Atom "+" mockPos, Number 2, Number 3] mockPos]
@@ -56,10 +60,12 @@ testEval =
       assertEval "(+ 2 3)" "5"
       assertEval "(+ 2 3 9)" "14"
       assertEval "(- 2 3 1)" "-2"
+      assertEval "(+ -3 -8 4)" "-7"
 
     it "nested math" $ do
       assertEval "(+ (* 2 2) 3)" "7"
       assertEval "(* (+ 2 (* 4 6)) (+ 3 5 7))" "390"
+      assertEval "(+ (- 3 -8) 4)" "15"
 
     it "num comp" $ do
       assertEval "(= 1 1)" "#t"

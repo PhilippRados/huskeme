@@ -151,6 +151,7 @@ builtins =
     ("eq?", eqv),
     ("eqv?", eqv),
     ("equal?", equal),
+    -- actually derived expression
     ("and", andOp),
     ("or", orOp),
     -- very basic io functionalities

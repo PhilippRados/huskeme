@@ -60,8 +60,15 @@ parseAtom = do
 parseNumber :: Parser LispVal
 -- same as: liftM (Number . read) $ many1 digit, because liftM <=> fmap, fmap <=> <$>
 parseNumber = do
-  n <- many1 digit
-  return $ Number (read n)
+  signage <- optionMaybe $ try (char '-' <|> char '+')
+  n <- try $ many1 digit
+  _ <- notFollowedBy parseAtom -- (-12 should be number but, -12foo should be atom)
+  return $
+    Number
+      ( case signage of
+          Just '-' -> -(read n)
+          _ -> read n
+      )
 
 parseBasicList :: SourcePos -> Parser LispVal
 parseBasicList pos = do
@@ -101,7 +108,13 @@ parseQuote = do
   return $ List [Atom "quote" pos, x] pos
 
 parseExpr :: Parser LispVal
-parseExpr = parseString <|> parseBool <|> parseAtom <|> parseNumber <|> parseLists <|> parseQuote
+parseExpr =
+  parseString
+    <|> parseBool
+    <|> try parseNumber -- can fail because of signage
+    <|> parseAtom
+    <|> parseLists
+    <|> parseQuote
 
 parseAll :: Parser [LispVal]
 parseAll = many (skipMany spaces *> parseExpr <* skipMany spaces) <* eof
