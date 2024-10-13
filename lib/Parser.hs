@@ -58,7 +58,6 @@ parseAtom = do
   return $ Atom (T.pack $ x : xs) pos
 
 parseNumber :: Parser LispVal
--- same as: liftM (Number . read) $ many1 digit, because liftM <=> fmap, fmap <=> <$>
 parseNumber = do
   signage <- optionMaybe $ try (char '-' <|> char '+')
   n <- try $ many1 digit

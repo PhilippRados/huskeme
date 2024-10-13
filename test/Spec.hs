@@ -48,6 +48,7 @@ testParse =
 
     it "parses dotted-lists" $ do
       assertParse "(1 .  (2 . 3))" [DottedList [Number 1, Number 2] (Number 3) mockPos]
+      assertParse "(define (foo . args) (car args))" [List [Atom "define" mockPos, DottedList [Atom "foo" mockPos] (Atom "args" mockPos) mockPos, List [Atom "car" mockPos, Atom "args" mockPos] mockPos] mockPos]
 
     it "parses quote" $ do
       assertParse "'(1 2 3)" [List [Atom "quote" mockPos, List [Number 1, Number 2, Number 3] mockPos] mockPos]
@@ -188,6 +189,9 @@ testFixtures =
 
     it "ignores comments" $ do
       assertFile "comments.scm" (Number 3)
+
+    it "varargs" $ do
+      assertFile "varargs.scm" (List [Number 34, Number 1, Number 4, Number 5] mockPos)
 
 assertFile :: (HasCallStack) => String -> LispVal -> Expectation
 assertFile file expected = do

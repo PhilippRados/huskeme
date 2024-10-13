@@ -11,3 +11,7 @@
 ; (define reverse-subtract
 ;   (lambda (x y) (- y x)))
 ; (write (reverse-subtract 7 10))
+
+;; (define (foo . b)
+;;   (+ b))
+;; (write (foo 1 2 3))

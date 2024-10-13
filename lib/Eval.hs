@@ -8,6 +8,7 @@ import Control.Monad.State
 import Control.Monad.Trans.Except
 import Data.List (findIndex)
 import qualified Data.Map as Map
+import Data.Maybe (isJust, isNothing)
 import qualified Data.Text as T
 import Parser
 import Text.Parsec (SourcePos)
@@ -19,18 +20,30 @@ applyOp first rest pos = do
   args <- mapM evalExpr rest
   case op of
     Func (InternalFn f) -> f args pos
-    (Lambda params body) ->
-      if length params /= length args
+    (Lambda params varargs body) ->
+      if mismatchedArgs params args varargs
         then throwError $ ArgError (length params) (length args) pos
-        else do
-          enter
-          zipWithM_ define params args
-          result <- evalBody
-          exit
-          return $ last result
-      where
-        evalBody = mapM evalExpr body
-    op -> throwError $ TypeError "function" op pos
+        else evalLambda params args varargs body pos
+    op' -> throwError $ TypeError "function" op' pos
+
+mismatchedArgs :: [T.Text] -> [LispVal] -> Maybe T.Text -> Bool
+mismatchedArgs params args varargs =
+  length params /= length args && isNothing varargs
+    || length params > length args && isJust varargs
+
+evalLambda :: [T.Text] -> [LispVal] -> Maybe T.Text -> [LispVal] -> SourcePos -> EvalResult LispVal
+evalLambda params args varargs body pos = do
+  enter
+  zipWithM_ addToLastEnv params args
+  _ <- maybeDefVarargs varargs
+  result <- evalBody
+  exit
+  return $ last result
+  where
+    evalBody = mapM evalExpr body
+    remainingArgs = drop (length params) args
+    maybeDefVarargs (Just varargs') = addToLastEnv varargs' (List remainingArgs pos)
+    maybeDefVarargs Nothing = return Undefined
 
 ifExpr :: LispVal -> LispVal -> LispVal -> EvalResult LispVal
 ifExpr cond then_expr else_expr = do
@@ -43,13 +56,17 @@ ifExpr cond then_expr else_expr = do
 define :: T.Text -> LispVal -> EvalResult LispVal
 define name expr = do
   value <- evalExpr expr
-  modify (addToLastEnv value)
+  addToLastEnv name value
+
+addToLastEnv :: T.Text -> LispVal -> EvalResult LispVal
+addToLastEnv name value = do
+  modify go
   return Undefined
   where
-    addToLastEnv value (current : rest) =
+    go (current : rest) =
       let new_current = Map.insert name value current
        in new_current : rest
-    addToLastEnv _ [] = error "unreachable: global environment should always exist"
+    go [] = error "unreachable: global environment should always exist"
 
 getVar :: T.Text -> SourcePos -> EvalResult LispVal
 getVar ident pos = do
@@ -87,8 +104,11 @@ exit :: EvalResult ()
 exit =
   modify tail
 
-lambda :: [LispVal] -> [LispVal] -> SourcePos -> EvalResult LispVal
-lambda args body pos = mapM unpackAtom args >>= \params -> return (Lambda params body)
+lambda :: [LispVal] -> Maybe LispVal -> [LispVal] -> SourcePos -> EvalResult LispVal
+lambda args varargs body pos = do
+  params <- mapM unpackAtom args
+  varargs' <- mapM unpackAtom varargs
+  return (Lambda params varargs' body)
   where
     unpackAtom :: LispVal -> EvalResult T.Text
     unpackAtom (Atom ident _) = return ident
@@ -101,9 +121,12 @@ evalExpr (List [Atom "if" _, cond, then_expr] _) = ifExpr cond then_expr Undefin
 evalExpr (List (Atom "if" _ : args) pos) = throwError $ ArgError 2 (length args) pos
 evalExpr (List [Atom "define" _, Atom name _, expr] _) = define name expr
 evalExpr (List (Atom "define" _ : Atom _ _ : args) pos) = throwError $ ArgError 2 (length args + 1) pos
-evalExpr (List (Atom "define" _ : List (Atom name _ : args) _ : body) pos) = lambda args body pos >>= define name
+evalExpr (List (Atom "define" _ : List (Atom name _ : args) _ : body) pos) = lambda args Nothing body pos >>= define name
+evalExpr (List (Atom "define" _ : DottedList (Atom name _ : args) varargs _ : body) pos) = lambda args (Just varargs) body pos >>= define name
 evalExpr (List (Atom "define" _ : arg : _) pos) = throwError $ TypeError "identifier or function definition" arg pos
-evalExpr (List (Atom "lambda" _ : (List args _) : body) pos) = lambda args body pos
+evalExpr (List (Atom "lambda" _ : (List args _) : body) pos) = lambda args Nothing body pos
+evalExpr (List (Atom "lambda" _ : (DottedList args varargs _) : body) pos) = lambda args (Just varargs) body pos
+evalExpr (List (Atom "lambda" _ : varargs@(Atom _ _) : body) pos) = lambda [] (Just varargs) body pos
 evalExpr (List (Atom "set!" _ : args) pos) = setVar args pos
 evalExpr (Atom ident pos) = getVar ident pos
 evalExpr (List (first : rest) pos) = applyOp first rest pos

@@ -34,6 +34,7 @@ data LispVal
   | Func InternalFn
   | Lambda
       { lambdaParams :: [T.Text],
+        lambdaVarargs :: Maybe T.Text,
         lambdaBody :: [LispVal]
       }
   | Port Handle
@@ -60,7 +61,10 @@ instance Show LispVal where
   show (List contents _) = "(" ++ unwords (show <$> contents) ++ ")"
   show (DottedList contents last_ _) = "(" ++ unwords (show <$> contents) ++ " . " ++ show last_ ++ ")"
   show (Func _) = "<builtin-function>"
-  show (Lambda {lambdaParams = args, lambdaBody = _}) = "<lambda (" ++ unwords (map show args) ++ ")>"
+  show (Lambda {lambdaParams = args, lambdaVarargs = va, lambdaBody = _}) = "<lambda (" ++ unwords (map show args) ++ varargs va ++ ")>"
+    where
+      varargs (Just v) = " . " ++ T.unpack v
+      varargs Nothing = ""
   show Undefined = "<undefined>"
   show (Port h) =
     let portname = takeWhile (/= '}') $ dropWhile (/= ' ') $ show h

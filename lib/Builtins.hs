@@ -21,7 +21,7 @@ unpackString x pos = throwError $ TypeError "string" x pos
 binOp :: (b -> LispVal) -> (LispVal -> SourcePos -> EvalResult a) -> ([a] -> b) -> [LispVal] -> SourcePos -> EvalResult LispVal
 binOp _ _ _ [_] pos = throwError $ ArgError 2 1 pos
 binOp _ _ _ [] pos = throwError $ ArgError 2 0 pos
-binOp pack unpack foldOp args pos = fmap (pack . foldOp) (mapM (flip unpack pos) args)
+binOp pack unpack foldOp args pos = fmap (pack . foldOp) (mapM (`unpack` pos) args)
 
 arithOp :: (Integer -> Integer -> Integer) -> [LispVal] -> SourcePos -> EvalResult LispVal
 arithOp op = binOp Number unpackNum (foldl1 op)
