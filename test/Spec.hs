@@ -8,7 +8,7 @@ import Eval
 import Parser
 import Repl
 import Test.Hspec
-import Text.Parsec.Pos (SourcePos, newPos)
+import Text.Parsec.Pos (newPos)
 import Utils
 
 mockLoc :: Loc

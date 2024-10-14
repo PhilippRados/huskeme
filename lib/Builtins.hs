@@ -44,22 +44,22 @@ strCompOp op = binOp Bool unpackString $ foldComp op
 car :: [LispVal] -> Loc -> EvalResult LispVal
 car [List (x : _) _] _ = return x
 car [DottedList (x : _) _ _] _ = return x
-car [arg] pos = throwError $ TypeError "list" arg pos
-car args pos = throwError $ ArgError 1 (length args) pos
+car [arg] loc = throwError $ TypeError "list" arg loc
+car args loc = throwError $ ArgError 1 (length args) loc
 
 cdr :: [LispVal] -> Loc -> EvalResult LispVal
-cdr [List (_ : xs) _] pos = return $ List xs pos
+cdr [List (_ : xs) _] loc = return $ List xs loc
 cdr [DottedList [_] x _] _ = return x
-cdr [DottedList (_ : xs) x _] pos = return $ DottedList xs x pos
-cdr [arg] pos = throwError $ TypeError "list" arg pos
-cdr args pos = throwError $ ArgError 1 (length args) pos
+cdr [DottedList (_ : xs) x _] loc = return $ DottedList xs x loc
+cdr [arg] loc = throwError $ TypeError "list" arg loc
+cdr args loc = throwError $ ArgError 1 (length args) loc
 
 cons :: [LispVal] -> Loc -> EvalResult LispVal
-cons [x1, List [] _] pos = return $ List [x1] pos
-cons [x1, List xs _] pos = return $ List (x1 : xs) pos
-cons [x1, DottedList xs last_ _] pos = return $ DottedList (x1 : xs) last_ pos
-cons [x1, x2] pos = return $ DottedList [x1] x2 pos
-cons args pos = throwError $ ArgError 2 (length args) pos
+cons [x1, List [] _] loc = return $ List [x1] loc
+cons [x1, List xs _] loc = return $ List (x1 : xs) loc
+cons [x1, DottedList xs last_ _] loc = return $ DottedList (x1 : xs) last_ loc
+cons [x1, x2] loc = return $ DottedList [x1] x2 loc
+cons args loc = throwError $ ArgError 2 (length args) loc
 
 -- eq and eqv can be the same according to r7rs:
 -- It must always return #f when eqv? also would,
@@ -71,20 +71,20 @@ eqv [Atom a _, Atom b _] _ = return $ Bool $ a == b -- can only happen if symbol
 eqv [String a, String b] _ = return $ Bool $ a == b
 eqv [List [] _, List [] _] _ = return $ Bool True
 eqv [_, _] _ = return $ Bool False
-eqv args pos = throwError $ ArgError 2 (length args) pos
+eqv args loc = throwError $ ArgError 2 (length args) loc
 
 -- same as eqv but can be used for lists as well
 equal :: [LispVal] -> Loc -> EvalResult LispVal
-equal [List xs _, List ys _] pos = equalLists xs ys pos
-equal [DottedList xs x _, DottedList ys y _] pos = equalLists (xs ++ [x]) (ys ++ [y]) pos
-equal args pos = eqv args pos
+equal [List xs _, List ys _] loc = equalLists xs ys loc
+equal [DottedList xs x _, DottedList ys y _] loc = equalLists (xs ++ [x]) (ys ++ [y]) loc
+equal args loc = eqv args loc
 
 equalLists :: [LispVal] -> [LispVal] -> Loc -> EvalResult LispVal
-equalLists xs ys pos = equal_values >>= (\eq -> return $ Bool $ same_length && eq)
+equalLists xs ys loc = equal_values >>= (\eq -> return $ Bool $ same_length && eq)
   where
     same_length = length xs == length ys
     equal_values = do
-      values <- mapM (\(a, b) -> equal [a, b] pos) $ zip xs ys
+      values <- mapM (\(a, b) -> equal [a, b] loc) $ zip xs ys
       return $ all (== Bool True) values
 
 andOp :: [LispVal] -> Loc -> EvalResult LispVal
@@ -101,26 +101,26 @@ orOp args _ = return $ case find (/= Bool False) args of
 
 makePort :: IOMode -> [LispVal] -> Loc -> EvalResult LispVal
 makePort mode [String filename] _ = fmap Port $ liftIO $ openFile (T.unpack filename) mode
-makePort _ [arg] pos = throwError $ TypeError "string" arg pos
-makePort _ args pos = throwError $ ArgError 1 (length args) pos
+makePort _ [arg] loc = throwError $ TypeError "string" arg loc
+makePort _ args loc = throwError $ ArgError 1 (length args) loc
 
 closePort :: [LispVal] -> Loc -> EvalResult LispVal
 closePort [Port port] _ = liftIO $ hClose port >> return Undefined
-closePort [arg] pos = throwError $ TypeError "port" arg pos
-closePort args pos = throwError $ ArgError 1 (length args) pos
+closePort [arg] loc = throwError $ TypeError "port" arg loc
+closePort args loc = throwError $ ArgError 1 (length args) loc
 
 readProc :: [LispVal] -> Loc -> EvalResult LispVal
-readProc [] pos = readProc [Port stdin] pos
+readProc [] loc = readProc [Port stdin] loc
 readProc [Port port] _ = do
   expr <- liftIO $ hGetLine port
   lift $ except (readExpr expr (handleName port))
-readProc [arg] pos = throwError $ TypeError "port" arg pos
-readProc args pos = throwError $ ArgError 1 (length args) pos
+readProc [arg] loc = throwError $ TypeError "port" arg loc
+readProc args loc = throwError $ ArgError 1 (length args) loc
 
 writeProc :: [LispVal] -> Loc -> EvalResult LispVal
-writeProc [obj] pos = writeProc [obj, Port stdout] pos
+writeProc [obj] loc = writeProc [obj, Port stdout] loc
 writeProc [obj, Port port] _ = liftIO $ hPrint port obj >> return Undefined
-writeProc args pos = throwError $ ArgError 2 (length args) pos
+writeProc args loc = throwError $ ArgError 2 (length args) loc
 
 builtinEnv :: [Map.Map T.Text LispVal]
 builtinEnv = [Map.fromList $ map toFunc builtins]

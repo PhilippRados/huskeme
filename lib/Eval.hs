@@ -14,16 +14,16 @@ import Parser
 import Utils
 
 applyOp :: LispVal -> [LispVal] -> Loc -> EvalResult LispVal
-applyOp first rest pos = do
+applyOp first rest loc = do
   op <- evalExpr first
   args <- mapM evalExpr rest
   case op of
-    Func (InternalFn f) -> f args pos
+    Func (InternalFn f) -> f args loc
     (Lambda params varargs body) ->
       if mismatchedArgs params args varargs
-        then throwError $ ArgError (length params) (length args) pos
-        else evalLambda params args varargs body pos
-    op' -> throwError $ TypeError "function" op' pos
+        then throwError $ ArgError (length params) (length args) loc
+        else evalLambda params args varargs body loc
+    op' -> throwError $ TypeError "function" op' loc
 
 mismatchedArgs :: [T.Text] -> [LispVal] -> Maybe T.Text -> Bool
 mismatchedArgs params args varargs =
@@ -31,7 +31,7 @@ mismatchedArgs params args varargs =
     || length params > length args && isJust varargs
 
 evalLambda :: [T.Text] -> [LispVal] -> Maybe T.Text -> [LispVal] -> Loc -> EvalResult LispVal
-evalLambda params args varargs body pos = do
+evalLambda params args varargs body loc = do
   enter
   zipWithM_ addToLastEnv params args
   _ <- maybeDefVarargs varargs
@@ -41,7 +41,7 @@ evalLambda params args varargs body pos = do
   where
     evalBody = mapM evalExpr body
     remainingArgs = drop (length params) args
-    maybeDefVarargs (Just varargs') = addToLastEnv varargs' (List remainingArgs pos)
+    maybeDefVarargs (Just varargs') = addToLastEnv varargs' (List remainingArgs loc)
     maybeDefVarargs Nothing = return Undefined
 
 ifExpr :: LispVal -> LispVal -> LispVal -> EvalResult LispVal
@@ -68,7 +68,7 @@ addToLastEnv name value = do
     go [] = error "unreachable: global environment should always exist"
 
 getVar :: T.Text -> Loc -> EvalResult LispVal
-getVar ident pos = do
+getVar ident loc = do
   env <- get
   searchEnv env
   where
@@ -77,23 +77,23 @@ getVar ident pos = do
       Just n -> return n
       Nothing ->
         if null rest
-          then throwError $ UnboundVar ident pos
+          then throwError $ UnboundVar ident loc
           else searchEnv rest
     searchEnv [] = error "unreachable: global environment should always exist"
 
 setVar :: [LispVal] -> Loc -> EvalResult LispVal
-setVar [Atom ident errPos, expr] _ = do
+setVar [Atom ident errloc, expr] _ = do
   val <- evalExpr expr
   env <- get
-  pos <- case findIndex (Map.member ident) env of
+  loc <- case findIndex (Map.member ident) env of
     Just n -> return n
-    Nothing -> throwError $ UnboundVar ident errPos
-  modify $ updateEnvAtPos val pos
+    Nothing -> throwError $ UnboundVar ident errloc
+  modify $ updateEnvAtloc val loc
   return Undefined
   where
-    -- NOTE: this pattern match does not fail because if pos is 0 then snd contains elems and cannot be empty
-    updateEnvAtPos val pos env = let (x, xs : ys) = splitAt pos env in x ++ Map.insert ident val xs : ys
-setVar args pos = throwError $ ArgError 2 (length args) pos
+    -- NOTE: this pattern match does not fail because if loc is 0 then snd contains elems and cannot be empty
+    updateEnvAtloc val loc env = let (x, xs : ys) = splitAt loc env in x ++ Map.insert ident val xs : ys
+setVar args loc = throwError $ ArgError 2 (length args) loc
 
 enter :: EvalResult ()
 enter =
@@ -104,33 +104,33 @@ exit =
   modify tail
 
 lambda :: [LispVal] -> Maybe LispVal -> [LispVal] -> Loc -> EvalResult LispVal
-lambda args varargs body pos = do
+lambda args varargs body loc = do
   params <- mapM unpackAtom args
   varargs' <- mapM unpackAtom varargs
   return (Lambda params varargs' body)
   where
     unpackAtom :: LispVal -> EvalResult T.Text
     unpackAtom (Atom ident _) = return ident
-    unpackAtom arg = throwError $ TypeError "identifier" arg pos
+    unpackAtom arg = throwError $ TypeError "identifier" arg loc
 
 evalExpr :: LispVal -> EvalResult LispVal
 evalExpr (List [Atom "quote" _, expr] _) = return expr
 evalExpr (List [Atom "if" _, cond, then_expr, else_expr] _) = ifExpr cond then_expr else_expr
 evalExpr (List [Atom "if" _, cond, then_expr] _) = ifExpr cond then_expr Undefined
-evalExpr (List (Atom "if" _ : args) pos) = throwError $ ArgError 2 (length args) pos
+evalExpr (List (Atom "if" _ : args) loc) = throwError $ ArgError 2 (length args) loc
 evalExpr (List [Atom "define" _, Atom name _, expr] _) = define name expr
-evalExpr (List (Atom "define" _ : Atom _ _ : args) pos) = throwError $ ArgError 2 (length args + 1) pos
-evalExpr (List (Atom "define" _ : List (Atom name _ : args) _ : body) pos) = lambda args Nothing body pos >>= define name
-evalExpr (List (Atom "define" _ : DottedList (Atom name _ : args) varargs _ : body) pos) = lambda args (Just varargs) body pos >>= define name
-evalExpr (List (Atom "define" _ : arg : _) pos) = throwError $ TypeError "identifier or function definition" arg pos
-evalExpr (List (Atom "lambda" _ : (List args _) : body) pos) = lambda args Nothing body pos
-evalExpr (List (Atom "lambda" _ : (DottedList args varargs _) : body) pos) = lambda args (Just varargs) body pos
-evalExpr (List (Atom "lambda" _ : varargs@(Atom _ _) : body) pos) = lambda [] (Just varargs) body pos
-evalExpr (List (Atom "set!" _ : args) pos) = setVar args pos
-evalExpr (Atom ident pos) = getVar ident pos
-evalExpr (List (first : rest) pos) = applyOp first rest pos
-evalExpr x@(DottedList _ _ pos) = throwError $ TypeError "proper list" x pos
-evalExpr x@(List _ pos) = throwError $ TypeError "non-empty list" x pos
+evalExpr (List (Atom "define" _ : Atom _ _ : args) loc) = throwError $ ArgError 2 (length args + 1) loc
+evalExpr (List (Atom "define" _ : List (Atom name _ : args) _ : body) loc) = lambda args Nothing body loc >>= define name
+evalExpr (List (Atom "define" _ : DottedList (Atom name _ : args) varargs _ : body) loc) = lambda args (Just varargs) body loc >>= define name
+evalExpr (List (Atom "define" _ : arg : _) loc) = throwError $ TypeError "identifier or function definition" arg loc
+evalExpr (List (Atom "lambda" _ : (List args _) : body) loc) = lambda args Nothing body loc
+evalExpr (List (Atom "lambda" _ : (DottedList args varargs _) : body) loc) = lambda args (Just varargs) body loc
+evalExpr (List (Atom "lambda" _ : varargs@(Atom _ _) : body) loc) = lambda [] (Just varargs) body loc
+evalExpr (List (Atom "set!" _ : args) loc) = setVar args loc
+evalExpr (Atom ident loc) = getVar ident loc
+evalExpr (List (first : rest) loc) = applyOp first rest loc
+evalExpr x@(DottedList _ _ loc) = throwError $ TypeError "proper list" x loc
+evalExpr x@(List _ loc) = throwError $ TypeError "non-empty list" x loc
 evalExpr expr = return expr
 
 evalWithEnv :: [LispVal] -> EvalResult LispVal

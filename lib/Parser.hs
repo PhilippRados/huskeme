@@ -7,8 +7,8 @@ import Text.Parsec.Prim (ParsecT)
 import Text.ParserCombinators.Parsec hiding (spaces)
 import Utils
 
-sourcePos :: (Monad m) => String -> ParsecT s u m Loc
-sourcePos input = do
+sourceLoc :: (Monad m) => String -> ParsecT s u m Loc
+sourceLoc input = do
   pos <- statePos <$> getParserState
   return Loc {locPos = pos, locInput = input}
 
@@ -54,10 +54,10 @@ symbol = oneOf "!#$%&|*+-/:<=>?@^_~"
 
 parseAtom :: String -> Parser LispVal
 parseAtom input = do
-  pos <- sourcePos input
+  loc <- sourceLoc input
   x <- letter <|> symbol
   xs <- many $ letter <|> digit <|> symbol
-  return $ Atom (T.pack $ x : xs) pos
+  return $ Atom (T.pack $ x : xs) loc
 
 parseNumber :: String -> Parser LispVal
 parseNumber input = do
@@ -72,30 +72,30 @@ parseNumber input = do
       )
 
 parseBasicList :: String -> Loc -> Parser LispVal
-parseBasicList input pos = do
+parseBasicList input loc = do
   elems <- sepBy (parseExpr input) spaces
-  return $ List elems pos
+  return $ List elems loc
 
 parseDottedList :: String -> Loc -> Parser LispVal
-parseDottedList input pos = do
+parseDottedList input loc = do
   elems <- endBy (parseExpr input) spaces
   _ <- char '.' >> spaces
   last' <- parseExpr input
-  return $ cons elems last' pos
+  return $ cons elems last' loc
   where
     -- tries to combine operands into proper list, if not then is improper (dotted)
     cons :: [LispVal] -> LispVal -> Loc -> LispVal
-    cons car (List [] _) _ = List car pos
-    cons car (List cdr _) _ = List (car ++ cdr) pos
-    cons car (DottedList xs last_' _) _ = case cons xs last_' pos of
-      List cdr _ -> List (car ++ cdr) pos
-      DottedList xs' last_'' _ -> DottedList (car ++ xs') last_'' pos
+    cons car (List [] _) _ = List car loc
+    cons car (List cdr _) _ = List (car ++ cdr) loc
+    cons car (DottedList xs last_' _) _ = case cons xs last_' loc of
+      List cdr _ -> List (car ++ cdr) loc
+      DottedList xs' last_'' _ -> DottedList (car ++ xs') last_'' loc
       _ -> error "unreachable cons can only return lists"
-    cons car cdr _ = DottedList car cdr pos
+    cons car cdr _ = DottedList car cdr loc
 
 parseLists :: String -> Parser LispVal
 parseLists input = do
-  loc <- sourcePos input
+  loc <- sourceLoc input
   _ <- char '('
   l <- try (parseBasicList input loc) <|> parseDottedList input loc
   _ <- char ')'
@@ -103,7 +103,7 @@ parseLists input = do
 
 parseQuote :: String -> Parser LispVal
 parseQuote input = do
-  loc <- sourcePos input
+  loc <- sourceLoc input
   _ <- char '\''
   x <- parseExpr input
   return $ List [Atom "quote" loc, x] loc
