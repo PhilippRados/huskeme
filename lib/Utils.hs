@@ -118,6 +118,7 @@ errorData :: SchemeError -> (String, FilePath, String, [(Position, Marker String
 errorData (TypeError expected got loc) = ("mismatched types", sourceName $ locPos loc, locInput loc, [(convertPos $ locPos loc, This ("this call expected an arg of type: " ++ T.unpack expected ++ ", but got: " ++ getKind got))])
 errorData (ArgError expected got loc) = ("mismatched number of arguments", sourceName $ locPos loc, locInput loc, [(convertPos $ locPos loc, This ("this call expected: " ++ show expected ++ " arg(s), but got " ++ show got))])
 errorData (UnboundVar name loc) = ("unbound variable " ++ T.unpack name, sourceName $ locPos loc, locInput loc, [(convertPos $ locPos loc, This "is this even defined?")])
+errorData (IOErr e loc) = ("IO error: " ++ show e, sourceName $ locPos loc, locInput loc, [(convertPos $ locPos loc, This "during this call")])
 errorData (Parse {}) = error "unreachable: parse error gets printed with errorDiagnosticFromParseError"
 
 getKind :: LispVal -> String

@@ -2,7 +2,6 @@
 
 module Builtins (builtinEnv) where
 
-import Control.Exception (SomeException (SomeException))
 import qualified Control.Exception as E
 import Control.Monad.Except
 import Control.Monad.Trans.Except
@@ -104,40 +103,48 @@ orOp args _ = return $ case find (/= Bool False) args of
 
 -------------------- IO Functions --------------------
 
+ioThrows :: (IO a) -> Loc -> EvalResult a
+ioThrows f loc = do
+  result <- liftIO (E.try f)
+  case result of
+    Left err -> throwError $ IOErr err loc
+    Right x -> return x
+
 makePort :: IOMode -> [LispVal] -> Loc -> EvalResult LispVal
-makePort mode [String filename] loc = fmap Port $ liftIO $ openFile (T.unpack filename) mode
--- handle <- liftIO $ E.try $ openFile (T.unpack filename) mode :: IO (Either IOError Handle)
--- case handle of
---   Left err -> throwError $ IOErr err loc
---   Right h -> return $ Port h
+makePort mode [String filename] loc = do
+  handle <- ioThrows (openFile (T.unpack filename) mode) loc
+  return $ Port handle
 makePort _ [arg] loc = throwError $ TypeError "string" arg loc
 makePort _ args loc = throwError $ ArgError 1 (length args) loc
 
 closePort :: [LispVal] -> Loc -> EvalResult LispVal
-closePort [Port port] _ = liftIO $ hClose port >> return Undefined
+closePort [Port port] loc = ioThrows (hClose port) loc >> return Undefined
 closePort [arg] loc = throwError $ TypeError "port" arg loc
 closePort args loc = throwError $ ArgError 1 (length args) loc
 
 readProc :: [LispVal] -> Loc -> EvalResult LispVal
 readProc [] loc = readProc [Port stdin] loc
-readProc [Port port] _ = do
-  expr <- liftIO $ hGetLine port
+readProc [Port port] loc = do
+  expr <- ioThrows (hGetLine port) loc
   lift $ except (readExpr expr (handleName port))
 readProc [arg] loc = throwError $ TypeError "port" arg loc
 readProc args loc = throwError $ ArgError 1 (length args) loc
 
 writeProc :: [LispVal] -> Loc -> EvalResult LispVal
 writeProc [obj] loc = writeProc [obj, Port stdout] loc
-writeProc [obj, Port port] _ = liftIO $ hPrint port obj >> return Undefined
+writeProc [obj, Port port] loc = ioThrows (hPrint port obj) loc >> return Undefined
+writeProc [_, arg] loc = throwError $ TypeError "port" arg loc
 writeProc args loc = throwError $ ArgError 2 (length args) loc
 
 load :: [LispVal] -> Loc -> EvalResult LispVal
-load [String filename] _ = do
-  input <- liftIO $ readFile s_filename
-  runWithEnv input s_filename
+load [String filename] loc = do
+  input <- ioThrows (readFile s_filename) loc
+  _ <- runWithEnv input s_filename
   return Undefined
   where
     s_filename = T.unpack filename
+load [arg] loc = throwError $ TypeError "port" arg loc
+load args loc = throwError $ ArgError 2 (length args) loc
 
 builtinEnv :: [Map.Map T.Text LispVal]
 builtinEnv = [Map.fromList $ map toFunc builtins]
