@@ -5,6 +5,7 @@ import Control.Monad.IO.Class (liftIO)
 import Data.Either
 import Data.Text (Text, pack)
 import Eval
+import Lib
 import Parser
 import Repl
 import Test.Hspec
@@ -195,6 +196,9 @@ testFixtures =
 
     it "reads scheme-files" $ do
       assertFile "read.scm" (List [Number 2, Number 3, Number 4] mockLoc)
+
+    it "load scheme-files" $ do
+      assertFile "load.scm" (List [Bool False, Number 1, Number 2, Number 3] mockLoc)
 
 assertFile :: (HasCallStack) => String -> LispVal -> Expectation
 assertFile file expected = do

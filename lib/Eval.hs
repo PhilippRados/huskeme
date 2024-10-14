@@ -1,8 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Eval (run, runWithEnv, EvalResult) where
+module Eval (runWithEnv, evalExpr, EvalResult) where
 
-import Builtins
 import Control.Monad.Except
 import Control.Monad.State
 import Control.Monad.Trans.Except
@@ -82,17 +81,17 @@ getVar ident loc = do
     searchEnv [] = error "unreachable: global environment should always exist"
 
 setVar :: [LispVal] -> Loc -> EvalResult LispVal
-setVar [Atom ident errloc, expr] _ = do
+setVar [Atom ident loc, expr] _ = do
   val <- evalExpr expr
   env <- get
-  loc <- case findIndex (Map.member ident) env of
+  pos <- case findIndex (Map.member ident) env of
     Just n -> return n
-    Nothing -> throwError $ UnboundVar ident errloc
-  modify $ updateEnvAtloc val loc
+    Nothing -> throwError $ UnboundVar ident loc
+  modify $ updateEnvAtPos val pos
   return Undefined
   where
-    -- NOTE: this pattern match does not fail because if loc is 0 then snd contains elems and cannot be empty
-    updateEnvAtloc val loc env = let (x, xs : ys) = splitAt loc env in x ++ Map.insert ident val xs : ys
+    -- NOTE: this pattern match does not fail because if pos is 0 then snd contains elems and cannot be empty
+    updateEnvAtPos val pos env = let (x, xs : ys) = splitAt pos env in x ++ Map.insert ident val xs : ys
 setVar args loc = throwError $ ArgError 2 (length args) loc
 
 enter :: EvalResult ()
@@ -138,9 +137,3 @@ evalWithEnv exprs = mapM evalExpr exprs >>= return . last
 
 runWithEnv :: String -> String -> EvalResult LispVal
 runWithEnv input filename = lift (except $ readExprs input filename) >>= evalWithEnv
-
-eval :: [LispVal] -> ExceptT SchemeError IO LispVal
-eval exprs = evalStateT (mapM evalExpr exprs) builtinEnv >>= return . last
-
-run :: String -> String -> IO (Either SchemeError LispVal)
-run input filename = runExceptT (except (readExprs input filename) >>= eval)

@@ -88,6 +88,7 @@ data SchemeError
   | TypeError T.Text LispVal Loc
   | ArgError Int Int Loc
   | UnboundVar T.Text Loc
+  | IOErr IOError Loc
   deriving (Eq, Show)
 
 data Loc = Loc

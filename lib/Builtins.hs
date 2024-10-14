@@ -2,11 +2,14 @@
 
 module Builtins (builtinEnv) where
 
+import Control.Exception (SomeException (SomeException))
+import qualified Control.Exception as E
 import Control.Monad.Except
 import Control.Monad.Trans.Except
 import Data.List (find)
 import qualified Data.Map as Map
 import qualified Data.Text as T
+import Eval (runWithEnv)
 import Parser (readExpr)
 import System.IO
 import Utils
@@ -99,8 +102,14 @@ orOp args _ = return $ case find (/= Bool False) args of
   Just truthy -> truthy
   Nothing -> last args
 
+-------------------- IO Functions --------------------
+
 makePort :: IOMode -> [LispVal] -> Loc -> EvalResult LispVal
-makePort mode [String filename] _ = fmap Port $ liftIO $ openFile (T.unpack filename) mode
+makePort mode [String filename] loc = fmap Port $ liftIO $ openFile (T.unpack filename) mode
+-- handle <- liftIO $ E.try $ openFile (T.unpack filename) mode :: IO (Either IOError Handle)
+-- case handle of
+--   Left err -> throwError $ IOErr err loc
+--   Right h -> return $ Port h
 makePort _ [arg] loc = throwError $ TypeError "string" arg loc
 makePort _ args loc = throwError $ ArgError 1 (length args) loc
 
@@ -121,6 +130,14 @@ writeProc :: [LispVal] -> Loc -> EvalResult LispVal
 writeProc [obj] loc = writeProc [obj, Port stdout] loc
 writeProc [obj, Port port] _ = liftIO $ hPrint port obj >> return Undefined
 writeProc args loc = throwError $ ArgError 2 (length args) loc
+
+load :: [LispVal] -> Loc -> EvalResult LispVal
+load [String filename] _ = do
+  input <- liftIO $ readFile s_filename
+  runWithEnv input s_filename
+  return Undefined
+  where
+    s_filename = T.unpack filename
 
 builtinEnv :: [Map.Map T.Text LispVal]
 builtinEnv = [Map.fromList $ map toFunc builtins]
@@ -164,5 +181,6 @@ builtins =
     ("close-input-port", closePort),
     ("close-output-port", closePort),
     ("read", readProc),
-    ("write", writeProc)
+    ("write", writeProc),
+    ("load", load)
   ]

@@ -1,0 +1,6 @@
+(define (not x)            (if x #f #t))
+(define (null? obj)        (if (eqv? obj '()) #t #f))
+(define (id obj)           obj)
+(define (list . objs)       objs)
+(define (odd? num)         (= (mod num 2) 1))
+(define (even? num)        (= (mod num 2) 0))
