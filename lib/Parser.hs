@@ -7,8 +7,10 @@ import Text.Parsec.Prim (ParsecT)
 import Text.ParserCombinators.Parsec hiding (spaces)
 import Utils
 
-sourcePos :: (Monad m) => ParsecT s u m SourcePos
-sourcePos = statePos <$> getParserState
+sourcePos :: (Monad m) => String -> ParsecT s u m Loc
+sourcePos input = do
+  pos <- statePos <$> getParserState
+  return Loc {locPos = pos, locInput = input}
 
 -- r7rs: Comments are treated exactly like whitespace
 comment :: Parser ()
@@ -50,18 +52,18 @@ parseString = do
 symbol :: Parser Char
 symbol = oneOf "!#$%&|*+-/:<=>?@^_~"
 
-parseAtom :: Parser LispVal
-parseAtom = do
-  pos <- sourcePos
+parseAtom :: String -> Parser LispVal
+parseAtom input = do
+  pos <- sourcePos input
   x <- letter <|> symbol
   xs <- many $ letter <|> digit <|> symbol
   return $ Atom (T.pack $ x : xs) pos
 
-parseNumber :: Parser LispVal
-parseNumber = do
+parseNumber :: String -> Parser LispVal
+parseNumber input = do
   signage <- optionMaybe $ try (char '-' <|> char '+')
   n <- try $ many1 digit
-  _ <- notFollowedBy parseAtom -- (-12 should be number but, -12foo should be atom)
+  _ <- notFollowedBy (parseAtom input) -- (-12 should be number but, -12foo should be atom)
   return $
     Number
       ( case signage of
@@ -69,20 +71,20 @@ parseNumber = do
           _ -> read n
       )
 
-parseBasicList :: SourcePos -> Parser LispVal
-parseBasicList pos = do
-  elems <- sepBy parseExpr spaces
+parseBasicList :: String -> Loc -> Parser LispVal
+parseBasicList input pos = do
+  elems <- sepBy (parseExpr input) spaces
   return $ List elems pos
 
-parseDottedList :: SourcePos -> Parser LispVal
-parseDottedList pos = do
-  elems <- endBy parseExpr spaces
+parseDottedList :: String -> Loc -> Parser LispVal
+parseDottedList input pos = do
+  elems <- endBy (parseExpr input) spaces
   _ <- char '.' >> spaces
-  last' <- parseExpr
+  last' <- parseExpr input
   return $ cons elems last' pos
   where
     -- tries to combine operands into proper list, if not then is improper (dotted)
-    cons :: [LispVal] -> LispVal -> SourcePos -> LispVal
+    cons :: [LispVal] -> LispVal -> Loc -> LispVal
     cons car (List [] _) _ = List car pos
     cons car (List cdr _) _ = List (car ++ cdr) pos
     cons car (DottedList xs last_' _) _ = case cons xs last_' pos of
@@ -91,39 +93,41 @@ parseDottedList pos = do
       _ -> error "unreachable cons can only return lists"
     cons car cdr _ = DottedList car cdr pos
 
-parseLists :: Parser LispVal
-parseLists = do
-  pos <- sourcePos
+parseLists :: String -> Parser LispVal
+parseLists input = do
+  loc <- sourcePos input
   _ <- char '('
-  l <- try (parseBasicList pos) <|> parseDottedList pos
+  l <- try (parseBasicList input loc) <|> parseDottedList input loc
   _ <- char ')'
   return l
 
-parseQuote :: Parser LispVal
-parseQuote = do
-  pos <- sourcePos
+parseQuote :: String -> Parser LispVal
+parseQuote input = do
+  loc <- sourcePos input
   _ <- char '\''
-  x <- parseExpr
-  return $ List [Atom "quote" pos, x] pos
+  x <- parseExpr input
+  return $ List [Atom "quote" loc, x] loc
 
-parseExpr :: Parser LispVal
-parseExpr =
+-- NOTE: needs input as argument to also have full input at every error location
+parseExpr :: String -> Parser LispVal
+parseExpr input =
   parseString
     <|> parseBool
-    <|> try parseNumber -- can fail because of signage
-    <|> parseAtom
-    <|> parseLists
-    <|> parseQuote
+    <|> try (parseNumber input) -- can fail because of signage
+    <|> parseAtom input
+    <|> parseLists input
+    <|> parseQuote input
 
-parseAll :: Parser [LispVal]
-parseAll = many (skipMany spaces *> parseExpr <* skipMany spaces) <* eof
+parseAll :: String -> Parser [LispVal]
+parseAll input = many (skipMany spaces *> parseExpr input <* skipMany spaces) <* eof
+
+readE :: (String -> Parser a) -> String -> String -> Either SchemeError a
+readE p input filename = case parse (p input) filename input of
+  Left err -> Left $ Parse err input
+  Right val -> return val
 
 readExpr :: String -> String -> Either SchemeError LispVal
-readExpr input filename = case parse parseExpr filename input of
-  Left err -> Left $ Parse err
-  Right val -> return val
+readExpr = readE parseExpr
 
 readExprs :: String -> String -> Either SchemeError [LispVal]
-readExprs input filename = case parse parseAll filename input of
-  Left err -> Left $ Parse err
-  Right val -> return val
+readExprs = readE parseAll

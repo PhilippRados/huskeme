@@ -11,8 +11,8 @@ import Test.Hspec
 import Text.Parsec.Pos (SourcePos, newPos)
 import Utils
 
-mockPos :: SourcePos
-mockPos = newPos "testfile" 1 1
+mockLoc :: Loc
+mockLoc = Loc {locPos = newPos "testfile" 1 1, locInput = ""}
 
 main :: IO ()
 main = hspec $ do
@@ -31,29 +31,29 @@ testParse =
       assertParse "\"\"" [String ""]
 
     it "parses atoms" $ do
-      assertParse "abc" [Atom "abc" mockPos]
-      assertParse "a1bc" [Atom "a1bc" mockPos]
-      assertParse "-1foo" [Atom "-1foo" mockPos]
+      assertParse "abc" [Atom "abc" mockLoc]
+      assertParse "a1bc" [Atom "a1bc" mockLoc]
+      assertParse "-1foo" [Atom "-1foo" mockLoc]
       assertParseErr "(1abc)"
 
     it "parses nums" $ do
-      assertParse "1 abc" [Number 1, Atom "abc" mockPos]
+      assertParse "1 abc" [Number 1, Atom "abc" mockLoc]
       assertParse "+1" [Number 1]
       assertParse "-1" [Number (-1)]
-      assertParse "(- 1 1)" [List [Atom "-" mockPos, Number 1, Number 1] mockPos]
+      assertParse "(- 1 1)" [List [Atom "-" mockLoc, Number 1, Number 1] mockLoc]
 
     it "parses lists" $ do
-      assertParse "(+ 2 3)" [List [Atom "+" mockPos, Number 2, Number 3] mockPos]
-      assertParse "(+ (- 2 10) 3)" [List [Atom "+" mockPos, List [Atom "-" mockPos, Number 2, Number 10] mockPos, Number 3] mockPos]
+      assertParse "(+ 2 3)" [List [Atom "+" mockLoc, Number 2, Number 3] mockLoc]
+      assertParse "(+ (- 2 10) 3)" [List [Atom "+" mockLoc, List [Atom "-" mockLoc, Number 2, Number 10] mockLoc, Number 3] mockLoc]
 
     it "parses dotted-lists" $ do
-      assertParse "(1 .  (2 . 3))" [DottedList [Number 1, Number 2] (Number 3) mockPos]
-      assertParse "(define (foo . args) (car args))" [List [Atom "define" mockPos, DottedList [Atom "foo" mockPos] (Atom "args" mockPos) mockPos, List [Atom "car" mockPos, Atom "args" mockPos] mockPos] mockPos]
+      assertParse "(1 .  (2 . 3))" [DottedList [Number 1, Number 2] (Number 3) mockLoc]
+      assertParse "(define (foo . args) (car args))" [List [Atom "define" mockLoc, DottedList [Atom "foo" mockLoc] (Atom "args" mockLoc) mockLoc, List [Atom "car" mockLoc, Atom "args" mockLoc] mockLoc] mockLoc]
 
     it "parses quote" $ do
-      assertParse "'(1 2 3)" [List [Atom "quote" mockPos, List [Number 1, Number 2, Number 3] mockPos] mockPos]
-      assertParse "'(+ 1 2)" [List [Atom "quote" mockPos, List [Atom "+" mockPos, Number 1, Number 2] mockPos] mockPos]
-      assertParse "(quote (+ 1 2))" [List [Atom "quote" mockPos, List [Atom "+" mockPos, Number 1, Number 2] mockPos] mockPos]
+      assertParse "'(1 2 3)" [List [Atom "quote" mockLoc, List [Number 1, Number 2, Number 3] mockLoc] mockLoc]
+      assertParse "'(+ 1 2)" [List [Atom "quote" mockLoc, List [Atom "+" mockLoc, Number 1, Number 2] mockLoc] mockLoc]
+      assertParse "(quote (+ 1 2))" [List [Atom "quote" mockLoc, List [Atom "+" mockLoc, Number 1, Number 2] mockLoc] mockLoc]
 
 testEval =
   describe "evalExpr" $ do
@@ -191,10 +191,10 @@ testFixtures =
       assertFile "comments.scm" (Number 3)
 
     it "varargs" $ do
-      assertFile "varargs.scm" (List [Number 34, Number 1, Number 4, Number 5] mockPos)
+      assertFile "varargs.scm" (List [Number 34, Number 1, Number 4, Number 5] mockLoc)
 
     it "reads scheme-files" $ do
-      assertFile "read.scm" (List [Number 2, Number 3, Number 4] mockPos)
+      assertFile "read.scm" (List [Number 2, Number 3, Number 4] mockLoc)
 
 assertFile :: (HasCallStack) => String -> LispVal -> Expectation
 assertFile file expected = do

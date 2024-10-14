@@ -19,7 +19,7 @@ cmd input = do
   env <- get
   result <- liftIO $ runExceptT $ runStateT (runWithEnv input "<stdin>") env
   case result of
-    Left err -> liftIO $ printError err input "<stdin>"
+    Left err -> liftIO $ printError err
     Right (val, env') -> do
       lift $ modify $ const env'
       liftIO $ print val

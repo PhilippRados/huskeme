@@ -11,10 +11,9 @@ import qualified Data.Map as Map
 import Data.Maybe (isJust, isNothing)
 import qualified Data.Text as T
 import Parser
-import Text.Parsec (SourcePos)
 import Utils
 
-applyOp :: LispVal -> [LispVal] -> SourcePos -> EvalResult LispVal
+applyOp :: LispVal -> [LispVal] -> Loc -> EvalResult LispVal
 applyOp first rest pos = do
   op <- evalExpr first
   args <- mapM evalExpr rest
@@ -31,7 +30,7 @@ mismatchedArgs params args varargs =
   length params /= length args && isNothing varargs
     || length params > length args && isJust varargs
 
-evalLambda :: [T.Text] -> [LispVal] -> Maybe T.Text -> [LispVal] -> SourcePos -> EvalResult LispVal
+evalLambda :: [T.Text] -> [LispVal] -> Maybe T.Text -> [LispVal] -> Loc -> EvalResult LispVal
 evalLambda params args varargs body pos = do
   enter
   zipWithM_ addToLastEnv params args
@@ -68,7 +67,7 @@ addToLastEnv name value = do
        in new_current : rest
     go [] = error "unreachable: global environment should always exist"
 
-getVar :: T.Text -> SourcePos -> EvalResult LispVal
+getVar :: T.Text -> Loc -> EvalResult LispVal
 getVar ident pos = do
   env <- get
   searchEnv env
@@ -82,7 +81,7 @@ getVar ident pos = do
           else searchEnv rest
     searchEnv [] = error "unreachable: global environment should always exist"
 
-setVar :: [LispVal] -> SourcePos -> EvalResult LispVal
+setVar :: [LispVal] -> Loc -> EvalResult LispVal
 setVar [Atom ident errPos, expr] _ = do
   val <- evalExpr expr
   env <- get
@@ -104,7 +103,7 @@ exit :: EvalResult ()
 exit =
   modify tail
 
-lambda :: [LispVal] -> Maybe LispVal -> [LispVal] -> SourcePos -> EvalResult LispVal
+lambda :: [LispVal] -> Maybe LispVal -> [LispVal] -> Loc -> EvalResult LispVal
 lambda args varargs body pos = do
   params <- mapM unpackAtom args
   varargs' <- mapM unpackAtom varargs

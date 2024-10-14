@@ -3,7 +3,17 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
-module Utils (LispVal (..), EvalResult, InternalFn (..), Env, printError, SchemeError (..)) where
+module Utils
+  ( Loc (..),
+    handleName,
+    LispVal (..),
+    EvalResult,
+    InternalFn (..),
+    Env,
+    printError,
+    SchemeError (..),
+  )
+where
 
 import Control.Monad.Except
 import Control.Monad.State
@@ -22,11 +32,11 @@ type Env = Map.Map T.Text LispVal
 type EvalResult a = StateT [Env] (ExceptT SchemeError IO) a
 
 data LispVal
-  = Atom T.Text SourcePos
+  = Atom T.Text Loc
   | -- proper list that terminates with empty list: (1 . (2 . (3 . ()))) => (1 2 3)
-    List [LispVal] SourcePos
+    List [LispVal] Loc
   | -- improper list that doesn't terminate with empty list: (1 . (2 . 3)) => (1 2 . 3)
-    DottedList [LispVal] LispVal SourcePos
+    DottedList [LispVal] LispVal Loc
   | Number Integer
   | String T.Text
   | Bool Bool
@@ -49,7 +59,7 @@ instance Eq LispVal where
   Port h1 == Port h2 = h1 == h2
   _ == _ = False
 
-newtype InternalFn = InternalFn {fn :: [LispVal] -> SourcePos -> EvalResult LispVal}
+newtype InternalFn = InternalFn {fn :: [LispVal] -> Loc -> EvalResult LispVal}
 
 instance Show LispVal where
   show (Atom atom _) = T.unpack atom
@@ -65,40 +75,49 @@ instance Show LispVal where
       varargs (Just v) = " . " ++ T.unpack v
       varargs Nothing = ""
   show Undefined = "<undefined>"
-  show (Port h) =
-    let portname = takeWhile (/= '}') $ dropWhile (/= ' ') $ show h
-     in "<port:" ++ portname ++ ">"
+  show (Port h) = "<port:" ++ handleName h ++ ">"
+
+-- strips {handle: file.scm} to file.scm
+handleName :: Handle -> String
+handleName h = takeWhile (/= '}') $ drop 1 $ dropWhile (/= ' ') $ show h
 
 --------------------- Error Stuff ---------------------
 
 data SchemeError
-  = Parse ParseError
-  | TypeError T.Text LispVal SourcePos
-  | ArgError Int Int SourcePos
-  | UnboundVar T.Text SourcePos
+  = Parse ParseError String
+  | TypeError T.Text LispVal Loc
+  | ArgError Int Int Loc
+  | UnboundVar T.Text Loc
+  deriving (Eq, Show)
+
+data Loc = Loc
+  { locPos :: SourcePos,
+    locInput :: String
+  }
   deriving (Eq, Show)
 
 instance HasHints Void String where hints _ = mempty
 
-printError :: SchemeError -> String -> String -> IO ()
-printError (Parse e) input filename = printDiag diag''
+printError :: SchemeError -> IO ()
+printError (Parse e input) = printDiag diag''
   where
+    filename = sourceName $ errorPos e
     diag' = errorDiagnosticFromParseError Nothing "parse error" Nothing e
     diag'' = addFile diag' filename input
-printError e input filename = printDiag diag''
+printError e = printDiag diag''
   where
-    (msg, pos) = errorData e
+    (msg, filename, input, pos) = errorData e
     diag' = addFile mempty filename input
     diag'' = addReport diag' (Err Nothing msg pos [])
 
 printDiag :: Diagnostic String -> IO ()
 printDiag = printDiagnostic stderr WithUnicode (TabSize 4) defaultStyle
 
-errorData :: SchemeError -> (String, [(Position, Marker String)])
-errorData (TypeError expected got pos) = ("mismatched types", [(convertPos pos, This ("this call expected an arg of type: " ++ T.unpack expected ++ ", but got: " ++ getKind got))])
-errorData (ArgError expected got pos) = ("mismatched number of arguments", [(convertPos pos, This ("this call expected: " ++ show expected ++ " arg(s), but got " ++ show got))])
-errorData (UnboundVar name pos) = ("unbound variable " ++ T.unpack name, [(convertPos pos, This "is this even defined?")])
-errorData (Parse _) = error "unreachable"
+errorData :: SchemeError -> (String, FilePath, String, [(Position, Marker String)])
+errorData (TypeError expected got loc) = ("mismatched types", sourceName $ locPos loc, locInput loc, [(convertPos $ locPos loc, This ("this call expected an arg of type: " ++ T.unpack expected ++ ", but got: " ++ getKind got))])
+errorData (ArgError expected got loc) = ("mismatched number of arguments", sourceName $ locPos loc, locInput loc, [(convertPos $ locPos loc, This ("this call expected: " ++ show expected ++ " arg(s), but got " ++ show got))])
+errorData (UnboundVar name loc) = ("unbound variable " ++ T.unpack name, sourceName $ locPos loc, locInput loc, [(convertPos $ locPos loc, This "is this even defined?")])
+errorData (Parse {}) = error "unreachable: parse error gets printed with errorDiagnosticFromParseError"
 
 getKind :: LispVal -> String
 getKind (Atom {}) = "atom"
