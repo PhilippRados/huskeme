@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Parser (readExprs) where
+module Parser (readExprs, readExpr) where
 
 import qualified Data.Text as T
 import Text.Parsec.Prim (ParsecT)
@@ -117,6 +117,11 @@ parseExpr =
 
 parseAll :: Parser [LispVal]
 parseAll = many (skipMany spaces *> parseExpr <* skipMany spaces) <* eof
+
+readExpr :: String -> String -> Either SchemeError LispVal
+readExpr input filename = case parse parseExpr filename input of
+  Left err -> Left $ Parse err
+  Right val -> return val
 
 readExprs :: String -> String -> Either SchemeError [LispVal]
 readExprs input filename = case parse parseAll filename input of

@@ -193,6 +193,9 @@ testFixtures =
     it "varargs" $ do
       assertFile "varargs.scm" (List [Number 34, Number 1, Number 4, Number 5] mockPos)
 
+    it "reads scheme-files" $ do
+      assertFile "read.scm" (List [Number 2, Number 3, Number 4] mockPos)
+
 assertFile :: (HasCallStack) => String -> LispVal -> Expectation
 assertFile file expected = do
   contents <- liftIO $ readFile ("fixtures/" ++ file)

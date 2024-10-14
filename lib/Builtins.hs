@@ -3,9 +3,11 @@
 module Builtins (builtinEnv) where
 
 import Control.Monad.Except
+import Control.Monad.Trans.Except
 import Data.List (find)
 import qualified Data.Map as Map
 import qualified Data.Text as T
+import Parser (readExpr)
 import System.IO
 import Text.Parsec (SourcePos)
 import Utils
@@ -108,10 +110,12 @@ closePort [Port port] _ = liftIO $ hClose port >> return Undefined
 closePort [arg] pos = throwError $ TypeError "port" arg pos
 closePort args pos = throwError $ ArgError 1 (length args) pos
 
--- readProc :: [LispVal] -> EvalResult LispVal
--- readProc [] = readProc [Port stdin]
--- readProc [Port port] = (liftIO $ hGetLine port) >>= liftThrows . readExpr
--- readProc args = throwError $ ArgError 1 (length args)
+readProc :: [LispVal] -> SourcePos -> EvalResult LispVal
+readProc [] pos = readProc [Port stdin] pos
+readProc [Port port] _ = do
+  expr <- liftIO $ hGetLine port
+  lift $ except (readExpr expr (show port))
+readProc args pos = throwError $ ArgError 1 (length args) pos
 
 writeProc :: [LispVal] -> SourcePos -> EvalResult LispVal
 writeProc [obj] pos = writeProc [obj, Port stdout] pos
@@ -159,6 +163,6 @@ builtins =
     ("open-output-file", makePort WriteMode),
     ("close-input-port", closePort),
     ("close-output-port", closePort),
-    -- ("read", readProc),
+    ("read", readProc),
     ("write", writeProc)
   ]

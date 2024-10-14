@@ -134,22 +134,14 @@ evalExpr x@(DottedList _ _ pos) = throwError $ TypeError "proper list" x pos
 evalExpr x@(List _ pos) = throwError $ TypeError "non-empty list" x pos
 evalExpr expr = return expr
 
-evalWithEnv :: [LispVal] -> StateT [Env] (ExceptT SchemeError IO) LispVal
-evalWithEnv exprs = do
-  env <- get
-  (vals, env') <- lift (withExceptT Eval $ runStateT (mapM evalExpr exprs) env)
-  modify $ const env'
-  return $ last vals
+evalWithEnv :: [LispVal] -> EvalResult LispVal
+evalWithEnv exprs = mapM evalExpr exprs >>= return . last
 
-runWithEnv :: String -> String -> StateT [Env] (ExceptT SchemeError IO) LispVal
-runWithEnv input filename = do
-  exprs <- lift $ except (readExprs input filename)
-  evalWithEnv exprs
+runWithEnv :: String -> String -> EvalResult LispVal
+runWithEnv input filename = lift (except $ readExprs input filename) >>= evalWithEnv
 
 eval :: [LispVal] -> ExceptT SchemeError IO LispVal
-eval exprs = do
-  result <- withExceptT Eval $ evalStateT (mapM evalExpr exprs) builtinEnv
-  return $ last result
+eval exprs = evalStateT (mapM evalExpr exprs) builtinEnv >>= return . last
 
 run :: String -> String -> IO (Either SchemeError LispVal)
 run input filename = runExceptT (except (readExprs input filename) >>= eval)

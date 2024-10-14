@@ -3,7 +3,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
-module Utils (LispVal (..), EvalResult, InternalFn (..), Env, EvalError (..), printError, SchemeError (..)) where
+module Utils (LispVal (..), EvalResult, InternalFn (..), Env, printError, SchemeError (..)) where
 
 import Control.Monad.Except
 import Control.Monad.State
@@ -19,8 +19,7 @@ type Env = Map.Map T.Text LispVal
 
 -- NOTE: I know this is supposed to be an anti-pattern, but I prefer my errors to be explicit
 -- but I don't like that this makes basically every function impure, I would like to separate out the IO more
-
-type EvalResult a = StateT [Env] (ExceptT EvalError IO) a
+type EvalResult a = StateT [Env] (ExceptT SchemeError IO) a
 
 data LispVal
   = Atom T.Text SourcePos
@@ -72,10 +71,9 @@ instance Show LispVal where
 
 --------------------- Error Stuff ---------------------
 
-data SchemeError = Parse ParseError | Eval EvalError deriving (Eq, Show) -- Show only used in tests
-
-data EvalError
-  = TypeError T.Text LispVal SourcePos
+data SchemeError
+  = Parse ParseError
+  | TypeError T.Text LispVal SourcePos
   | ArgError Int Int SourcePos
   | UnboundVar T.Text SourcePos
   deriving (Eq, Show)
@@ -87,7 +85,7 @@ printError (Parse e) input filename = printDiag diag''
   where
     diag' = errorDiagnosticFromParseError Nothing "parse error" Nothing e
     diag'' = addFile diag' filename input
-printError (Eval e) input filename = printDiag diag''
+printError e input filename = printDiag diag''
   where
     (msg, pos) = errorData e
     diag' = addFile mempty filename input
@@ -96,10 +94,11 @@ printError (Eval e) input filename = printDiag diag''
 printDiag :: Diagnostic String -> IO ()
 printDiag = printDiagnostic stderr WithUnicode (TabSize 4) defaultStyle
 
-errorData :: EvalError -> (String, [(Position, Marker String)])
+errorData :: SchemeError -> (String, [(Position, Marker String)])
 errorData (TypeError expected got pos) = ("mismatched types", [(convertPos pos, This ("this call expected an arg of type: " ++ T.unpack expected ++ ", but got: " ++ getKind got))])
 errorData (ArgError expected got pos) = ("mismatched number of arguments", [(convertPos pos, This ("this call expected: " ++ show expected ++ " arg(s), but got " ++ show got))])
 errorData (UnboundVar name pos) = ("unbound variable " ++ T.unpack name, [(convertPos pos, This "is this even defined?")])
+errorData (Parse _) = error "unreachable"
 
 getKind :: LispVal -> String
 getKind (Atom {}) = "atom"
