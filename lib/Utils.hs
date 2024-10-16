@@ -44,6 +44,7 @@ data LispVal
   | Lambda
       { lambdaParams :: [T.Text],
         lambdaVarargs :: Maybe T.Text,
+        lambdaEnv :: [Env],
         lambdaBody :: [LispVal]
       }
   | Port Handle

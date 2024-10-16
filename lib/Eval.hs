@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Eval (runWithEnv, evalExpr, EvalResult) where
+module Eval (applyOp, runWithEnv, evalExpr, EvalResult) where
 
 import Control.Monad.Except
 import Control.Monad.State
@@ -9,6 +9,7 @@ import Data.List (findIndex)
 import qualified Data.Map as Map
 import Data.Maybe (isJust, isNothing)
 import qualified Data.Text as T
+import Debug.Trace
 import Parser
 import Utils
 
@@ -18,10 +19,10 @@ applyOp first rest loc = do
   args <- mapM evalExpr rest
   case op of
     Func (InternalFn f) -> f args loc
-    (Lambda params varargs body) ->
+    (Lambda params varargs closure body) ->
       if mismatchedArgs params args varargs
         then throwError $ ArgError (length params) (length args) loc
-        else evalLambda params args varargs body loc
+        else evalLambda params args varargs closure body loc
     op' -> throwError $ TypeError "function" op' loc
 
 mismatchedArgs :: [T.Text] -> [LispVal] -> Maybe T.Text -> Bool
@@ -29,8 +30,8 @@ mismatchedArgs params args varargs =
   length params /= length args && isNothing varargs
     || length params > length args && isJust varargs
 
-evalLambda :: [T.Text] -> [LispVal] -> Maybe T.Text -> [LispVal] -> Loc -> EvalResult LispVal
-evalLambda params args varargs body loc = do
+evalLambda :: [T.Text] -> [LispVal] -> Maybe T.Text -> [Env] -> [LispVal] -> Loc -> EvalResult LispVal
+evalLambda params args varargs closure body loc = do
   enter
   zipWithM_ addToLastEnv params args
   _ <- maybeDefVarargs varargs
@@ -42,6 +43,8 @@ evalLambda params args varargs body loc = do
     remainingArgs = drop (length params) args
     maybeDefVarargs (Just varargs') = addToLastEnv varargs' (List remainingArgs loc)
     maybeDefVarargs Nothing = return Undefined
+    enter = modify (closure ++) -- FIXME: closures global env overshadows current global
+    exit = modify tail
 
 ifExpr :: LispVal -> LispVal -> LispVal -> EvalResult LispVal
 ifExpr cond then_expr else_expr = do
@@ -94,19 +97,12 @@ setVar [Atom ident loc, expr] _ = do
     updateEnvAtPos val pos env = let (x, xs : ys) = splitAt pos env in x ++ Map.insert ident val xs : ys
 setVar args loc = throwError $ ArgError 2 (length args) loc
 
-enter :: EvalResult ()
-enter =
-  modify ((Map.empty :: Map.Map T.Text LispVal) :)
-
-exit :: EvalResult ()
-exit =
-  modify tail
-
 lambda :: [LispVal] -> Maybe LispVal -> [LispVal] -> Loc -> EvalResult LispVal
 lambda args varargs body loc = do
   params <- mapM unpackAtom args
   varargs' <- mapM unpackAtom varargs
-  return (Lambda params varargs' body)
+  env <- get
+  return (Lambda params varargs' env body)
   where
     unpackAtom :: LispVal -> EvalResult T.Text
     unpackAtom (Atom ident _) = return ident

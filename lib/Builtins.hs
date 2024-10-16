@@ -8,7 +8,7 @@ import Control.Monad.Trans.Except
 import Data.List (find)
 import qualified Data.Map as Map
 import qualified Data.Text as T
-import Eval (runWithEnv)
+import Eval (applyOp, runWithEnv)
 import Parser (readExpr)
 import System.IO
 import Utils
@@ -146,6 +146,15 @@ load [String filename] loc = do
 load [arg] loc = throwError $ TypeError "port" arg loc
 load args loc = throwError $ ArgError 2 (length args) loc
 
+-- INFO: first arg must be callable, last arg must be list, prevs can be single values
+applyProc :: [LispVal] -> Loc -> EvalResult LispVal
+applyProc (f : args) loc
+  | null args = throwError $ ArgError 2 (length args) loc
+  | otherwise = case reverse args of
+      (List last_ _ : xs) -> applyOp f (xs ++ last_) loc
+      _ -> throwError $ TypeError "list" (head args) loc
+applyProc args loc = throwError $ ArgError 2 (length args) loc
+
 builtinEnv :: [Map.Map T.Text LispVal]
 builtinEnv = [Map.fromList $ map toFunc builtins]
   where
@@ -189,5 +198,6 @@ builtins =
     ("close-output-port", closePort),
     ("read", readProc),
     ("write", writeProc),
-    ("load", load)
+    ("load", load),
+    ("apply", applyProc)
   ]

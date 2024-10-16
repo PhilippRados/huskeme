@@ -168,6 +168,16 @@ testEval =
       assertEval "(define f 5) (set! f 2) f" "2"
       assertEvalErr "(set! f 2)"
 
+    it "apply" $ do
+      assertEval "(apply + '(3 4))" "7"
+      assertEval "(apply + 1 '(1 2))" "4"
+      assertEval "(apply + 1 -2 3 '(10 20))" "32"
+      assertEvalErr "(apply + 3 4)"
+      assertEvalErr "(apply + (3 4))"
+
+    it "closure" $ do
+      assertEval "(((lambda (x) (lambda (y) (+ x y))) 2) 3)" "5"
+
 testFixtures =
   describe "fixtures" $ do
     it "nested variables" $ do
@@ -199,6 +209,9 @@ testFixtures =
 
     it "load scheme-files" $ do
       assertFile "load.scm" (List [Bool False, Number 1, Number 2, Number 3] mockLoc)
+
+    it "apply nested" $ do
+      assertFile "apply.scm" (Number 987)
 
 assertFile :: (HasCallStack) => String -> LispVal -> Expectation
 assertFile file expected = do
