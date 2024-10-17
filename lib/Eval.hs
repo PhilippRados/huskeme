@@ -9,14 +9,11 @@ import Data.List (findIndex)
 import qualified Data.Map as Map
 import Data.Maybe (isJust, isNothing)
 import qualified Data.Text as T
-import Debug.Trace
 import Parser
 import Utils
 
 applyOp :: LispVal -> [LispVal] -> Loc -> EvalResult LispVal
-applyOp first rest loc = do
-  op <- evalExpr first
-  args <- mapM evalExpr rest
+applyOp op args loc = do
   case op of
     Func (InternalFn f) -> f args loc
     (Lambda params varargs closure body) ->
@@ -44,7 +41,8 @@ evalLambda params args varargs closure body loc = do
     maybeDefVarargs (Just varargs') = addToLastEnv varargs' (List remainingArgs loc)
     maybeDefVarargs Nothing = return Undefined
     enter = modify (closure ++) -- FIXME: closures global env overshadows current global
-    exit = modify tail
+    -- enter = modify ((Map.empty :: Map.Map T.Text LispVal) :)
+    exit = modify (drop $ length closure)
 
 ifExpr :: LispVal -> LispVal -> LispVal -> EvalResult LispVal
 ifExpr cond then_expr else_expr = do
@@ -123,7 +121,10 @@ evalExpr (List (Atom "lambda" _ : (DottedList args varargs _) : body) loc) = lam
 evalExpr (List (Atom "lambda" _ : varargs@(Atom _ _) : body) loc) = lambda [] (Just varargs) body loc
 evalExpr (List (Atom "set!" _ : args) loc) = setVar args loc
 evalExpr (Atom ident loc) = getVar ident loc
-evalExpr (List (first : rest) loc) = applyOp first rest loc
+evalExpr (List (first : rest) loc) = do
+  op <- evalExpr first
+  args <- mapM evalExpr rest
+  applyOp op args loc
 evalExpr x@(DottedList _ _ loc) = throwError $ TypeError "proper list" x loc
 evalExpr x@(List _ loc) = throwError $ TypeError "non-empty list" x loc
 evalExpr expr = return expr

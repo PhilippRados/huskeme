@@ -177,6 +177,7 @@ testEval =
 
     it "closure" $ do
       assertEval "(((lambda (x) (lambda (y) (+ x y))) 2) 3)" "5"
+      assertEvalWithLib "((lambda (arg) (apply map (cons length (list arg)))) '((1 2 3) () (1 2)))" "(3 0 2)"
 
 testFixtures =
   describe "fixtures" $ do
@@ -213,6 +214,10 @@ testFixtures =
     it "apply nested" $ do
       assertFile "apply.scm" (Number 987)
 
+    it "stdlib" $ do
+      assertFile "map_filter.scm" (Number 9)
+      assertFile "compose.scm" (Bool True)
+
 assertFile :: (HasCallStack) => String -> LispVal -> Expectation
 assertFile file expected = do
   contents <- liftIO $ readFile ("fixtures/" ++ file)
@@ -231,8 +236,13 @@ assertEval :: (HasCallStack) => String -> String -> Expectation
 assertEval expr expected = do
   actual <- run expr "file"
   case actual of
-    Left _ -> error "eval error"
+    Left err -> error (show err)
     Right actual -> show actual `shouldBe` expected
+
+assertEvalWithLib :: (HasCallStack) => String -> String -> Expectation
+assertEvalWithLib expr = assertEval expr'
+  where
+    expr' = "(load \"fixtures/lib.scm\")" ++ expr
 
 assertEvalErr :: (HasCallStack) => String -> Expectation
 assertEvalErr expr = do
