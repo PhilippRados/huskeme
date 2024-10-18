@@ -155,10 +155,13 @@ applyProc (f : args) loc
       _ -> throwError $ TypeError "list" (head args) loc
 applyProc args loc = throwError $ ArgError 2 (length args) loc
 
-builtinEnv :: [Map.Map T.Text LispVal]
-builtinEnv = [Map.fromList $ map toFunc builtins]
-  where
-    toFunc (ident, f) = (ident, Func (InternalFn f))
+builtinEnv :: Env
+builtinEnv =
+  let len = length builtins
+      refs = zip (map fst builtins) [0 .. len]
+      vals = zip [0 .. len] $ map (toFunc . snd) builtins
+      toFunc f = Func (InternalFn f)
+   in Env {envRefs = [Map.fromList refs], envVals = Map.fromList vals}
 
 -- these are builtin functions according to the r7rs standard:
 -- https://standards.scheme.org/corrected-r7rs/r7rs-Z-H-8.html#TAG:__tex2page_chap_6

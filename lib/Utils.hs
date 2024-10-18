@@ -9,7 +9,9 @@ module Utils
     LispVal (..),
     EvalResult,
     InternalFn (..),
-    Env,
+    Env (..),
+    EnvRefs,
+    EnvVals,
     printError,
     SchemeError (..),
   )
@@ -25,11 +27,18 @@ import Error.Diagnose.Compat.Parsec
 import System.IO (Handle)
 import Text.Parsec
 
-type Env = Map.Map T.Text LispVal
+type EnvRefs = [Map.Map T.Text Int]
+
+type EnvVals = Map.Map Int LispVal
+
+data Env = Env
+  { envRefs :: EnvRefs,
+    envVals :: EnvVals
+  }
 
 -- NOTE: I know this is supposed to be an anti-pattern, but I prefer my errors to be explicit
 -- but I don't like that this makes basically every function impure, I would like to separate out the IO more
-type EvalResult a = StateT [Env] (ExceptT SchemeError IO) a
+type EvalResult a = StateT Env (ExceptT SchemeError IO) a
 
 data LispVal
   = Atom T.Text Loc
@@ -44,7 +53,7 @@ data LispVal
   | Lambda
       { lambdaParams :: [T.Text],
         lambdaVarargs :: Maybe T.Text,
-        lambdaEnv :: [Env],
+        lambdaEnv :: EnvRefs,
         lambdaBody :: [LispVal]
       }
   | Port Handle

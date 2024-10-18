@@ -1,3 +1,7 @@
-(load "../huskeme/fixtures/lib.scm")
+(((lambda (x) (lambda (y) (+ x y))) 2) 3)
+(((lambda (x) (lambda (y) (+ x y))) 2) 3)
 
-(write ((curry map length) '((1 2 3) () (1 2))))
+(define s (lambda (n) (+ m 1)))
+
+(define m 5)
+(s 1)
