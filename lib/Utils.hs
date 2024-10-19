@@ -27,7 +27,7 @@ import Error.Diagnose.Compat.Parsec
 import System.IO (Handle)
 import Text.Parsec
 
-type EnvRefs = [Map.Map T.Text Int]
+type EnvRefs = Map.Map T.Text Int
 
 type EnvVals = Map.Map Int LispVal
 

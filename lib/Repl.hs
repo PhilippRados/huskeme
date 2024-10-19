@@ -25,7 +25,7 @@ cmd input = do
       liftIO $ print val
 
 flattenKeys :: Env -> [String]
-flattenKeys env = nub $ map T.unpack $ concatMap Map.keys (envRefs env)
+flattenKeys env = nub $ map T.unpack $ Map.keys (envRefs env)
 
 comp :: (Monad m, MonadState Env m) => WordCompleter m
 comp n = do

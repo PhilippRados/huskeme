@@ -33,7 +33,7 @@ evalLambda :: [T.Text] -> [LispVal] -> Maybe T.Text -> EnvRefs -> [LispVal] -> L
 evalLambda params args varargs closureRefs body loc = do
   old_env <- get
   enter
-  zipWithM_ addToLastEnv params args
+  zipWithM_ addToEnv params args
   _ <- maybeDefVarargs varargs
   result <- evalBody
   exit (envRefs old_env)
@@ -42,18 +42,12 @@ evalLambda params args varargs closureRefs body loc = do
     evalBody = mapM evalExpr body
 
     remainingArgs = drop (length params) args
-    maybeDefVarargs (Just varargs') = addToLastEnv varargs' (List remainingArgs loc)
+    maybeDefVarargs (Just varargs') = addToEnv varargs' (List remainingArgs loc)
     maybeDefVarargs Nothing = return Undefined
 
-    enter = modify (\env -> env {envRefs = (Map.empty :: Map.Map T.Text Int) : closureRefs ++ envRefs env})
+    enter = modify (\env -> env {envRefs = Map.union closureRefs (envRefs env)})
     exit :: EnvRefs -> EvalResult ()
-    exit oldRefs = modify resetRefs
-      where
-        resetRefs env =
-          let Env {envRefs = (new : _), envVals = vals} = env
-              new_refs = Map.elems new
-              oldVals = Map.withoutKeys vals (Set.fromList new_refs)
-           in Env {envRefs = oldRefs, envVals = vals}
+    exit oldRefs = modify (\env -> env {envRefs = oldRefs})
 
 ifExpr :: LispVal -> LispVal -> LispVal -> EvalResult LispVal
 ifExpr cond then_expr else_expr = do
@@ -67,47 +61,37 @@ define :: T.Text -> LispVal -> EvalResult LispVal
 define name expr = do
   value <- evalExpr expr
   env <- get
-  case Map.lookup name (last $ envRefs env) of
+  case Map.lookup name $ envRefs env of
     Just ref -> modify (updateRef ref value) >> return Undefined
-    Nothing -> addToLastEnv name value
+    Nothing -> addToEnv name value
 
-addToLastEnv :: T.Text -> LispVal -> EvalResult LispVal
-addToLastEnv name value = do
+addToEnv :: T.Text -> LispVal -> EvalResult LispVal
+addToEnv name value = do
   modify go
   return Undefined
   where
-    go Env {envRefs = (current : rest), envVals = vals} =
+    go Env {envRefs = refs, envVals = vals} =
       let ref = (+ 1) $ maximum (Map.keys vals)
           new_vals = Map.insert ref value vals
-          new_refs = Map.insert name ref current
-       in Env {envRefs = new_refs : rest, envVals = new_vals}
-    go Env {} = error "unreachable: global environment should always exist"
+          new_refs = Map.insert name ref refs
+       in Env {envRefs = new_refs, envVals = new_vals}
 
 getVar :: T.Text -> Loc -> EvalResult LispVal
 getVar ident loc = do
   Env {envRefs = refs, envVals = vals} <- get
-  go refs vals
-  where
-    go :: EnvRefs -> EnvVals -> EvalResult LispVal
-    go (current : rest) vals = case Map.lookup ident current of
-      Just n -> return $ fromJust (Map.lookup n vals)
-      Nothing ->
-        if null rest
-          then throwError $ UnboundVar ident loc
-          else go rest vals
-    go [] _ = error "unreachable: global environment should always exist"
+  case Map.lookup ident refs of
+    Just n -> return $ fromJust (Map.lookup n vals)
+    Nothing -> throwError $ UnboundVar ident loc
 
 setVar :: [LispVal] -> Loc -> EvalResult LispVal
 setVar [Atom ident loc, expr] _ = do
   value <- evalExpr expr
   Env {envRefs = refs} <- get
-  case findIdent refs of
+  case Map.lookup ident refs of
     Just ref -> do
       modify $ updateRef ref value
       return Undefined
     Nothing -> throwError $ UnboundVar ident loc
-  where
-    findIdent refs = join $ find isJust (map (Map.lookup ident) refs)
 setVar args loc = throwError $ ArgError 2 (length args) loc
 
 updateRef :: Int -> LispVal -> Env -> Env
