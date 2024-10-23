@@ -1,7 +1,13 @@
-(((lambda (x) (lambda (y) (+ x y))) 2) 3)
-(((lambda (x) (lambda (y) (+ x y))) 2) 3)
+(define first (lambda (x) (lambda (y) (+ x y))))
+(define snd (lambda (x) (lambda (y) (set! x 8) (+ x y))))
 
-(define s (lambda (n) (+ m 1)))
+(define (bar) 
+  (define s 19)
+  s)
 
-(define m 5)
-(s 1)
+(write ((first 3) 2))
+(write ((snd 3) 2))
+(write (bar))
+(write (bar))
+(write (bar))
+(write (bar))

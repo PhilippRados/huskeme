@@ -159,7 +159,7 @@ builtinEnv :: Env
 builtinEnv =
   let len = length builtins
       refs = zip (map fst builtins) [0 .. len]
-      vals = zip [0 .. len] $ map (toFunc . snd) builtins
+      vals = zip [0 .. len] $ map (\b-> (toFunc . snd $ b, False)) builtins
       toFunc f = Func (InternalFn f)
    in Env {envRefs = Map.fromList refs, envVals = Map.fromList vals}
 

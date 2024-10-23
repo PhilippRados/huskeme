@@ -29,7 +29,9 @@ import Text.Parsec
 
 type EnvRefs = Map.Map T.Text Int
 
-type EnvVals = Map.Map Int LispVal
+type Captured = Bool
+
+type EnvVals = Map.Map Int (LispVal, Captured)
 
 data Env = Env
   { envRefs :: EnvRefs,

@@ -5,12 +5,10 @@ module Eval (applyOp, runWithEnv, evalExpr, EvalResult) where
 import Control.Monad.Except
 import Control.Monad.State
 import Control.Monad.Trans.Except
-import Data.List (find)
 import qualified Data.Map as Map
 import Data.Maybe (fromJust, isJust, isNothing)
 import qualified Data.Set as Set
 import qualified Data.Text as T
-import Debug.Trace
 import Parser
 import Utils
 
@@ -47,7 +45,15 @@ evalLambda params args varargs closureRefs body loc = do
 
     enter = modify (\env -> env {envRefs = Map.union closureRefs (envRefs env)})
     exit :: EnvRefs -> EvalResult ()
-    exit oldRefs = modify (\env -> env {envRefs = oldRefs})
+    exit oldRefs = modify resetEnv
+      where
+        resetEnv env =
+          let Env {envRefs = currentRefs, envVals = vals} = env
+              vals_to_delete = Map.elems (Map.difference (Map.difference currentRefs oldRefs) closureRefs)
+              isNotCaptured ref = not $ snd $ fromJust $ Map.lookup ref vals
+              vals_to_delete2 = filter isNotCaptured vals_to_delete
+              removedVals = Map.withoutKeys vals (Set.fromList vals_to_delete2)
+           in Env {envRefs = oldRefs, envVals = removedVals}
 
 ifExpr :: LispVal -> LispVal -> LispVal -> EvalResult LispVal
 ifExpr cond then_expr else_expr = do
@@ -72,7 +78,7 @@ addToEnv name value = do
   where
     go Env {envRefs = refs, envVals = vals} =
       let ref = (+ 1) $ maximum (Map.keys vals)
-          new_vals = Map.insert ref value vals
+          new_vals = Map.insert ref (value, False) vals
           new_refs = Map.insert name ref refs
        in Env {envRefs = new_refs, envVals = new_vals}
 
@@ -80,7 +86,7 @@ getVar :: T.Text -> Loc -> EvalResult LispVal
 getVar ident loc = do
   Env {envRefs = refs, envVals = vals} <- get
   case Map.lookup ident refs of
-    Just n -> return $ fromJust (Map.lookup n vals)
+    Just n -> return $ fst $ fromJust (Map.lookup n vals)
     Nothing -> throwError $ UnboundVar ident loc
 
 setVar :: [LispVal] -> Loc -> EvalResult LispVal
@@ -95,18 +101,24 @@ setVar [Atom ident loc, expr] _ = do
 setVar args loc = throwError $ ArgError 2 (length args) loc
 
 updateRef :: Int -> LispVal -> Env -> Env
-updateRef ref value env@Env {envVals = vals} = env {envVals = Map.insert ref value vals}
+updateRef ref value env@Env {envVals = vals} = env {envVals = Map.insert ref (value, snd $ fromJust (Map.lookup ref vals)) vals}
 
 lambda :: [LispVal] -> Maybe LispVal -> [LispVal] -> Loc -> EvalResult LispVal
 lambda args varargs body loc = do
   params <- mapM unpackAtom args
   varargs' <- mapM unpackAtom varargs
-  Env {envRefs = refs} <- get
-  return (Lambda params varargs' refs body)
+  Env {envRefs = captured_refs} <- get
+  captureVals captured_refs
+  return (Lambda params varargs' captured_refs body)
   where
     unpackAtom :: LispVal -> EvalResult T.Text
     unpackAtom (Atom ident _) = return ident
     unpackAtom arg = throwError $ TypeError "identifier" arg loc
+
+    captureVals :: EnvRefs -> EvalResult ()
+    captureVals captured_refs = modify (\env -> env {envVals = updateCapturedRefs (envVals env)})
+      where
+        updateCapturedRefs vals = foldl (flip (Map.adjust (\(ref, _) -> (ref, True)))) vals captured_refs
 
 evalExpr :: LispVal -> EvalResult LispVal
 evalExpr (List [Atom "quote" _, expr] _) = return expr
