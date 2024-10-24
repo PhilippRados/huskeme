@@ -29,12 +29,12 @@ mismatchedArgs params args varargs =
 
 evalLambda :: [T.Text] -> [LispVal] -> Maybe T.Text -> EnvRefs -> [LispVal] -> Loc -> EvalResult LispVal
 evalLambda params args varargs closureRefs body loc = do
-  old_env <- get
+  old_refs <- gets envRefs
   enter
   zipWithM_ addToEnv params args
   _ <- maybeDefVarargs varargs
   result <- evalBody
-  exit (envRefs old_env)
+  exit old_refs
   return $ last result
   where
     evalBody = mapM evalExpr body
@@ -66,8 +66,8 @@ ifExpr cond then_expr else_expr = do
 define :: T.Text -> LispVal -> EvalResult LispVal
 define name expr = do
   value <- evalExpr expr
-  env <- get
-  case Map.lookup name $ envRefs env of
+  refs <- gets envRefs
+  case Map.lookup name refs of
     Just ref -> modify (updateRef ref value) >> return Undefined
     Nothing -> addToEnv name value
 
@@ -92,7 +92,7 @@ getVar ident loc = do
 setVar :: [LispVal] -> Loc -> EvalResult LispVal
 setVar [Atom ident loc, expr] _ = do
   value <- evalExpr expr
-  Env {envRefs = refs} <- get
+  refs <- gets envRefs
   case Map.lookup ident refs of
     Just ref -> do
       modify $ updateRef ref value
@@ -107,7 +107,7 @@ lambda :: [LispVal] -> Maybe LispVal -> [LispVal] -> Loc -> EvalResult LispVal
 lambda args varargs body loc = do
   params <- mapM unpackAtom args
   varargs' <- mapM unpackAtom varargs
-  Env {envRefs = captured_refs} <- get
+  captured_refs <- gets envRefs
   captureVals captured_refs
   return (Lambda params varargs' captured_refs body)
   where

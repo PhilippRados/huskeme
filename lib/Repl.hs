@@ -10,7 +10,7 @@ import qualified Data.Map as Map
 import qualified Data.Text as T
 import Eval
 import System.Console.Repline
-import Utils (Env (..), printError)
+import Utils (Env (..), EnvRefs, printError)
 
 type Repl a = HaskelineT (StateT Env IO) a
 
@@ -24,13 +24,13 @@ cmd input = do
       lift $ modify $ const env'
       liftIO $ print val
 
-flattenKeys :: Env -> [String]
-flattenKeys env = nub $ map T.unpack $ Map.keys (envRefs env)
+flattenKeys :: EnvRefs -> [String]
+flattenKeys refs = nub $ map T.unpack $ Map.keys refs
 
 comp :: (Monad m, MonadState Env m) => WordCompleter m
 comp n = do
-  env <- get
-  let symbols = flattenKeys env
+  refs <- gets envRefs
+  let symbols = flattenKeys refs
   return $ filter (isPrefixOf n) symbols
 
 help :: [String] -> Repl ()
@@ -45,8 +45,8 @@ help _ = liftIO $ putStrLn $ info ++ formatCommands
 
 dumpEnv :: [String] -> Repl ()
 dumpEnv _ = do
-  env <- get
-  liftIO $ putStrLn $ unlines $ flattenKeys env
+  refs <- gets envRefs
+  liftIO $ putStrLn $ unlines $ flattenKeys refs
 
 opts :: [(String, String -> Repl ())]
 opts =
