@@ -4,7 +4,7 @@ import Control.Exception.Base
 import Control.Monad.IO.Class (liftIO)
 import Data.Either
 import Data.Text (Text, pack)
-import Eval
+import Interpreter.Eval
 import Lib
 import Parser
 import Repl
@@ -221,7 +221,7 @@ testFixtures =
 assertFile :: (HasCallStack) => String -> LispVal -> Expectation
 assertFile file expected = do
   contents <- liftIO $ readFile ("fixtures/" ++ file)
-  actual <- run contents file
+  actual <- run eval contents file
   actual `shouldBe` Right expected
 
 assertParse :: (HasCallStack) => String -> [LispVal] -> Expectation
@@ -234,7 +234,7 @@ assertParseErr expr =
 
 assertEval :: (HasCallStack) => String -> String -> Expectation
 assertEval expr expected = do
-  actual <- run expr "file"
+  actual <- run eval expr "file"
   case actual of
     Left err -> error (show err)
     Right actual -> show actual `shouldBe` expected
@@ -246,7 +246,7 @@ assertEvalWithLib expr = assertEval expr'
 
 assertEvalErr :: (HasCallStack) => String -> Expectation
 assertEvalErr expr = do
-  actual <- run expr "file"
+  actual <- run eval expr "file"
   actual `shouldSatisfyWithMessage` isLeft
 
 shouldSatisfyWithMessage :: (Show a) => a -> (a -> Bool) -> Expectation

@@ -1,23 +1,29 @@
-module Lib (runScheme, runRepl, run) where
+module Lib (runScheme, runRepl, run,eval) where
 
-import Builtins
 import Control.Monad.Except
 import Control.Monad.State
 import Control.Monad.Trans.Except
-import Eval
+import Interpreter.Builtins
+import Interpreter.Eval
 import Parser
 import Repl
 import Utils
 
-eval :: [LispVal] -> ExceptT SchemeError IO LispVal
+type Evaluator a = [LispVal] -> ExceptT SchemeError IO a
+
+eval :: Evaluator LispVal
 eval exprs = evalStateT (mapM evalExpr exprs) builtinEnv >>= return . last
 
-run :: String -> String -> IO (Either SchemeError LispVal)
-run input filename = runExceptT (except (readExprs input filename) >>= eval)
+emitLLVM :: Evaluator LispVal
+emitLLVM exprs = undefined
 
-runScheme :: String -> String -> IO ()
-runScheme input filename = do
-  result <- run input filename
+run :: Evaluator a -> String -> String -> IO (Either SchemeError a)
+run evaluator input filename = runExceptT (except (readExprs input filename) >>= evaluator)
+
+runScheme :: Bool -> String -> String -> IO ()
+runScheme useJit input filename = do
+  let evaluator = if useJit then emitLLVM else eval
+  result <- run evaluator input filename
   case result of
     Left err -> printError err
     Right _ -> return ()

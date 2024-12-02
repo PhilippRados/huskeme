@@ -2,13 +2,13 @@
 
 module Repl (runRepl) where
 
-import Builtins (builtinEnv)
 import Control.Monad.Except
 import Control.Monad.State
 import Data.List
 import qualified Data.Map as Map
 import qualified Data.Text as T
-import Eval
+import Interpreter.Builtins (builtinEnv)
+import Interpreter.Eval
 import System.Console.Repline
 import Utils (Env (..), EnvRefs, printError)
 

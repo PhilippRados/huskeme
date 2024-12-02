@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Builtins (builtinEnv) where
+module Interpreter.Builtins (builtinEnv) where
 
 import qualified Control.Exception as E
 import Control.Monad.Except
@@ -8,7 +8,7 @@ import Control.Monad.Trans.Except
 import Data.List (find)
 import qualified Data.Map as Map
 import qualified Data.Text as T
-import Eval (applyOp, runWithEnv)
+import Interpreter.Eval (applyOp, runWithEnv)
 import Parser (readExpr)
 import System.IO
 import Utils
@@ -159,7 +159,7 @@ builtinEnv :: Env
 builtinEnv =
   let len = length builtins
       refs = zip (map fst builtins) [0 .. len]
-      vals = zip [0 .. len] $ map (\b-> (toFunc . snd $ b, False)) builtins
+      vals = zip [0 .. len] $ map (\b -> (toFunc . snd $ b, False)) builtins
       toFunc f = Func (InternalFn f)
    in Env {envRefs = Map.fromList refs, envVals = Map.fromList vals}
 

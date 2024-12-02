@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Eval (applyOp, runWithEnv, evalExpr, EvalResult) where
+module Interpreter.Eval (applyOp, runWithEnv, evalExpr, EvalResult) where
 
 import Control.Monad.Except
 import Control.Monad.State
