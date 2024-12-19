@@ -1,5 +1,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 
+-- The Repl uses the standard interpreter to evaluate expressions
+-- and saves definitions across evaluations
 module Repl (runRepl) where
 
 import Control.Monad.Except

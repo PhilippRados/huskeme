@@ -77,6 +77,7 @@ library
       , repline
       , transformers
       , diagnose >= 2.5.1
+      , llvm-codegen
 
 executable huskeme
     import:           warnings
